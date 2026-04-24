@@ -23,7 +23,6 @@ const dictionary = {
   'Export ประวัติรับเข้า เบิกออก แก้ไข และลบสินค้า': 'Export receiving, issuing, editing, and deleting history',
   'ประวัติต้นทุน CSV': 'Cost History CSV',
   'Export ประวัติต้นทุนแต่ละรอบ': 'Export cost history by receiving round',
-
   'จำนวนรายการสินค้า': 'Product SKUs',
   'สินค้าทั้งหมดในระบบ': 'Total products in the system',
   'จำนวนสต็อครวม': 'Total stock quantity',
@@ -42,7 +41,7 @@ const dictionary = {
   'ยังไม่มีข้อมูล': 'No data yet',
   'รายการสินค้าที่ถูกเบิกในเดือนนี้': 'Items issued this month',
   'สินค้า': 'Product',
-  'หมวดหมู่': 'Category',
+  'หมวดหมู่': 'categories',
   'จำนวนเบิก': 'Issued quantity',
   'จำนวนครั้ง': 'Entries',
   'มูลค่าโดยประมาณ': 'Estimated value',
@@ -50,7 +49,6 @@ const dictionary = {
   'เดือนนี้ยังไม่มีรายการเบิกออก': 'No stock issues this month',
   'สรุปตามหมวดหมู่ของเดือนที่เลือก': 'Category summary for selected month',
   'มูลค่ารวม': 'Total value',
-  'หมวดหมู่': 'categories',
   'ไม่มีการเบิกในเดือนนี้': 'No stock issues this month',
   'สรุปรายวันในเดือนที่เลือก': 'Daily summary for selected month',
   'ยังไม่มีข้อมูลรายวัน': 'No daily data yet',
@@ -72,7 +70,6 @@ const dictionary = {
   'อันดับ 1': 'No. 1',
   'Top 5 ต้นทุนล่าสุดต่อหน่วย': 'Top 5 Latest Unit Costs',
   'สินค้าต้นทุนเฉลี่ยสูงสุด': 'Highest Average Unit Cost',
-
   'รับเข้า / เพิ่มสินค้า': 'Receive / Add Product',
   'ของเข้าให้บันทึกที่ส่วนนี้ เพื่อเก็บต้นทุนและซัพพลายเออร์': 'Record incoming stock here to keep cost and supplier history.',
   'เพิ่มสินค้าใหม่': 'Add New Product',
@@ -109,7 +106,6 @@ const dictionary = {
   'ผู้เบิก / ผู้ทำรายการ': 'Staff / Operator',
   'หมายเหตุเพิ่มเติม': 'Additional notes',
   'ประวัติการเคลื่อนไหว': 'Stock Movement History',
-
   'จัดการสินค้าและจำนวนคงเหลือ': 'Manage Products & Stock',
   'ดูจำนวนคงเหลือ ต้นทุนเฉลี่ย และมูลค่าสต็อคคงเหลือของแต่ละสินค้า': 'View stock quantity, average cost, and remaining stock value by product.',
   'มูลค่าสต็อครวมทั้งหมด': 'Total inventory value',
@@ -139,22 +135,32 @@ const dictionary = {
 };
 
 const originalTextMap = new WeakMap();
+const translatedTextMap = new WeakMap();
+
+function normalizeText(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim();
+}
 
 function translateText(text, language) {
   if (language !== 'en') return text;
-  const normalized = text.replace(/\s+/g, ' ').trim();
+  const normalized = normalizeText(text);
   return dictionary[normalized] || text;
+}
+
+function shouldSkipNode(node) {
+  const parent = node.parentElement;
+  if (!parent) return true;
+  if (['SCRIPT', 'STYLE', 'INPUT', 'TEXTAREA', 'OPTION'].includes(parent.tagName)) return true;
+  if (parent.closest('[data-no-translate="true"]')) return true;
+  if (!node.nodeValue || !node.nodeValue.trim()) return true;
+  return false;
 }
 
 function translateElement(root, language) {
   if (!root || typeof document === 'undefined') return;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
-      const parent = node.parentElement;
-      if (!parent) return NodeFilter.FILTER_REJECT;
-      if (['SCRIPT', 'STYLE', 'INPUT', 'TEXTAREA', 'OPTION'].includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
-      if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
-      return NodeFilter.FILTER_ACCEPT;
+      return shouldSkipNode(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
     },
   });
 
@@ -164,21 +170,19 @@ function translateElement(root, language) {
   nodes.forEach((node) => {
     if (!originalTextMap.has(node)) originalTextMap.set(node, node.nodeValue);
     const original = originalTextMap.get(node);
-    node.nodeValue = language === 'en' ? translateText(original, 'en') : original;
+    const nextValue = language === 'en' ? translateText(original, 'en') : original;
+    if (translatedTextMap.get(node) !== nextValue && node.nodeValue !== nextValue) {
+      node.nodeValue = nextValue;
+      translatedTextMap.set(node, nextValue);
+    }
   });
 }
 
-export function useAutoTranslate(language) {
+export function useAutoTranslate(language, refreshKey = '') {
   useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
+    if (typeof document === 'undefined') return;
     const root = document.getElementById('root');
-    translateElement(root, language);
     document.documentElement.lang = language === 'en' ? 'en' : 'th';
-
-    const observer = new MutationObserver(() => {
-      translateElement(root, language);
-    });
-    if (root) observer.observe(root, { childList: true, subtree: true, characterData: true });
-    return () => observer.disconnect();
-  }, [language]);
+    window.requestAnimationFrame(() => translateElement(root, language));
+  }, [language, refreshKey]);
 }
