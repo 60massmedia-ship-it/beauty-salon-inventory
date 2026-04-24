@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { categoryOptions, productTypeOptions, unitOptions } from '../data/constants.js';
 import { Button, Card, Field, Modal, SelectInput, TextArea, TextInput } from './ui.jsx';
-import { createId, createProduct, formatMoney, getCostStats, getSupplierStats, nowIso, toSafeNumber } from '../lib/inventory.js';
+import { createId, createProduct, formatMoney, formatNumber, getCostStats, getSupplierStats, nowIso, toSafeNumber } from '../lib/inventory.js';
 
 export default function ProductPage({ products, setProducts, setTransactions, costHistory, setCostHistory }) {
   const [query, setQuery] = useState('');
@@ -35,6 +35,10 @@ export default function ProductPage({ products, setProducts, setTransactions, co
       supplier: product.supplier,
       note: product.note,
     });
+  };
+
+  const openCostViewer = (product) => {
+    setCostViewer({ ...product });
   };
 
   const saveInfoEditor = () => {
@@ -96,7 +100,7 @@ export default function ProductPage({ products, setProducts, setTransactions, co
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm font-black text-blue-700" onClick={() => openInfoEditor(product)}>✏️ แก้ไข</button>
           <button type="button" className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-black text-amber-800" onClick={() => openStockEditor(product)}>📦 สต็อค</button>
-          <button type="button" className="rounded-2xl border border-purple-200 bg-purple-50 px-3 py-3 text-sm font-black text-purple-700" onClick={() => setCostViewer(product)}>📈 ต้นทุน</button>
+          <button type="button" className="rounded-2xl border border-purple-200 bg-purple-50 px-3 py-3 text-sm font-black text-purple-700" onClick={() => openCostViewer(product)}>📈 ต้นทุน</button>
           <button type="button" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm font-black text-red-700" onClick={() => setDeleteTarget(product)}>🗑️ ลบ</button>
         </div>
       </div>
@@ -139,7 +143,7 @@ export default function ProductPage({ products, setProducts, setTransactions, co
                     <td className="px-3 py-3 font-black text-neutral-700">{formatMoney(costStats.latestCost || product.cost)}</td>
                     <td className="px-3 py-3 text-neutral-600">{formatMoney(costStats.averageCost || product.cost)}</td>
                     <td className="px-3 py-3 text-neutral-600"><div className="max-w-[130px] truncate font-black text-neutral-700">{latestSupplier}</div><div className="mt-1 text-[11px] text-neutral-400">เคยซื้อ {supplierInfo.supplierCount} เจ้า</div></td>
-                    <td className="px-3 py-3 text-right"><div className="flex flex-nowrap justify-end gap-1.5"><button type="button" className="rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs font-black text-blue-700" onClick={() => openInfoEditor(product)}>✏️ แก้ไข</button><button type="button" className="rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs font-black text-amber-800" onClick={() => openStockEditor(product)}>📦 สต็อค</button><button type="button" className="rounded-xl border border-purple-200 bg-purple-50 px-2.5 py-2 text-xs font-black text-purple-700" onClick={() => setCostViewer(product)}>📈 ต้นทุน</button><button type="button" className="rounded-xl border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-black text-red-700" onClick={() => setDeleteTarget(product)}>🗑️ ลบ</button></div></td>
+                    <td className="px-3 py-3 text-right"><div className="flex flex-nowrap justify-end gap-1.5"><button type="button" className="rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs font-black text-blue-700" onClick={() => openInfoEditor(product)}>✏️ แก้ไข</button><button type="button" className="rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs font-black text-amber-800" onClick={() => openStockEditor(product)}>📦 สต็อค</button><button type="button" className="rounded-xl border border-purple-200 bg-purple-50 px-2.5 py-2 text-xs font-black text-purple-700" onClick={() => openCostViewer(product)}>📈 ต้นทุน</button><button type="button" className="rounded-xl border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-black text-red-700" onClick={() => setDeleteTarget(product)}>🗑️ ลบ</button></div></td>
                   </tr>
                 );
               })}
@@ -160,11 +164,30 @@ export default function ProductPage({ products, setProducts, setTransactions, co
 function CostHistoryModal({ product, costHistory, onClose }) {
   const records = costHistory.filter((item) => item.productId === product.id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const stats = getCostStats(records);
+  const latestCost = stats.latestCost || toSafeNumber(product.cost);
+  const averageCost = stats.averageCost || toSafeNumber(product.cost);
+  const minCost = stats.minCost || toSafeNumber(product.cost);
+  const maxCost = stats.maxCost || toSafeNumber(product.cost);
   return (
-    <Modal title="ประวัติต้นทุนสินค้า" subtitle={product.name} onCancel={onClose} hideSave maxWidth="max-w-3xl">
+    <Modal title="📈 ประวัติต้นทุนสินค้า" subtitle={product.name} onCancel={onClose} hideSave maxWidth="max-w-3xl">
       <div className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-2xl bg-neutral-950 p-4 text-white"><p className="text-xs text-neutral-300">ต้นทุนล่าสุด</p><p className="text-xl font-black">{formatMoney(stats.latestCost)}</p></div><div className="rounded-2xl bg-emerald-50 p-4 text-emerald-800"><p className="text-xs">ต้นทุนเฉลี่ย</p><p className="text-xl font-black">{formatMoney(stats.averageCost)}</p></div><div className="rounded-2xl bg-blue-50 p-4 text-blue-800"><p className="text-xs">ต่ำสุด / สูงสุด</p><p className="text-xl font-black">{formatMoney(stats.minCost)} / {formatMoney(stats.maxCost)}</p></div><div className="rounded-2xl bg-amber-50 p-4 text-amber-800"><p className="text-xs">รวมซื้อเข้า</p><p className="text-xl font-black">{formatNumber(stats.totalQty)} {product.unit}</p></div></div>
-        <div className="overflow-auto rounded-2xl border border-neutral-200"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-neutral-100 text-neutral-600"><tr><th className="px-4 py-3">วันที่</th><th className="px-4 py-3">จำนวนเข้า</th><th className="px-4 py-3">ต้นทุน/หน่วย</th><th className="px-4 py-3">ซัพพลายเออร์</th><th className="px-4 py-3">เลขที่บิล</th><th className="px-4 py-3">หมายเหตุ</th></tr></thead><tbody>{records.map((record) => <tr key={record.id} className="border-t border-neutral-100"><td className="px-4 py-3">{new Date(record.createdAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</td><td className="px-4 py-3">{record.quantity} {product.unit}</td><td className="px-4 py-3 font-black text-neutral-950">{formatMoney(record.unitCost)}</td><td className="px-4 py-3">{record.supplier || '-'}</td><td className="px-4 py-3">{record.invoiceNo || '-'}</td><td className="px-4 py-3">{record.note || '-'}</td></tr>)}</tbody></table>{records.length === 0 ? <div className="p-8 text-center text-neutral-500">ยังไม่มีประวัติต้นทุน</div> : null}</div>
+        <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4 text-purple-800">
+          <p className="font-black">เปิดข้อมูลต้นทุนของสินค้าแล้ว</p>
+          <p className="mt-1 text-sm">ถ้ายังไม่มีประวัติรับเข้า ระบบจะแสดงต้นทุนล่าสุดจากข้อมูลสินค้าแทน และแนะนำให้รับเข้าสินค้าเพื่อสร้างประวัติต้นทุนจริง</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl bg-neutral-950 p-4 text-white"><p className="text-xs text-neutral-300">ต้นทุนล่าสุด</p><p className="text-xl font-black">{formatMoney(latestCost)}</p></div>
+          <div className="rounded-2xl bg-emerald-50 p-4 text-emerald-800"><p className="text-xs">ต้นทุนเฉลี่ย</p><p className="text-xl font-black">{formatMoney(averageCost)}</p></div>
+          <div className="rounded-2xl bg-blue-50 p-4 text-blue-800"><p className="text-xs">ต่ำสุด / สูงสุด</p><p className="text-xl font-black">{formatMoney(minCost)} / {formatMoney(maxCost)}</p></div>
+          <div className="rounded-2xl bg-amber-50 p-4 text-amber-800"><p className="text-xs">รวมซื้อเข้า</p><p className="text-xl font-black">{formatNumber(stats.totalQty)} {product.unit}</p></div>
+        </div>
+        <div className="overflow-auto rounded-2xl border border-neutral-200">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-neutral-100 text-neutral-600"><tr><th className="px-4 py-3">วันที่</th><th className="px-4 py-3">จำนวนเข้า</th><th className="px-4 py-3">ต้นทุน/หน่วย</th><th className="px-4 py-3">ซัพพลายเออร์</th><th className="px-4 py-3">เลขที่บิล</th><th className="px-4 py-3">หมายเหตุ</th></tr></thead>
+            <tbody>{records.map((record) => <tr key={record.id} className="border-t border-neutral-100"><td className="px-4 py-3">{new Date(record.createdAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</td><td className="px-4 py-3">{record.quantity} {product.unit}</td><td className="px-4 py-3 font-black text-neutral-950">{formatMoney(record.unitCost)}</td><td className="px-4 py-3">{record.supplier || '-'}</td><td className="px-4 py-3">{record.invoiceNo || '-'}</td><td className="px-4 py-3">{record.note || '-'}</td></tr>)}</tbody>
+          </table>
+          {records.length === 0 ? <div className="p-8 text-center text-neutral-500"><div className="text-4xl">📭</div><p className="mt-3 font-black text-neutral-950">ยังไม่มีประวัติต้นทุนจากการรับเข้า</p><p className="mt-1 text-sm">ให้ไปที่หน้า สต็อค → รับเข้า / เพิ่มสินค้า เพื่อบันทึกต้นทุนรอบใหม่ ระบบจะนำมาแสดงในตารางนี้อัตโนมัติ</p></div> : null}
+        </div>
       </div>
     </Modal>
   );
