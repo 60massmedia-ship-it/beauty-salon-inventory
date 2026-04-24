@@ -44,6 +44,43 @@ export default function Dashboard({ products, transactions, costHistory }) {
   const mostExpensiveLatestProduct = highestLatestCostProducts[0];
   const recentTransactions = transactions.slice(0, 5);
 
+  const topUsedProducts = Object.values(outboundThisMonth.reduce((acc, item) => {
+    const product = products.find((p) => p.id === item.productId);
+    const key = item.productId || item.productName;
+    const unitCost = product ? getEstimatedUnitCost(product, costHistory) : 0;
+    if (!acc[key]) {
+      acc[key] = {
+        productId: key,
+        productName: item.productName,
+        quantity: 0,
+        estimatedCost: 0,
+        unit: product?.unit || '',
+      };
+    }
+    acc[key].quantity += Number(item.quantity || 0);
+    acc[key].estimatedCost += Number(item.quantity || 0) * unitCost;
+    return acc;
+  }, {})).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+
+  const categorySummary = Object.values(products.reduce((acc, product) => {
+    const key = product.category || 'อื่น ๆ';
+    const unitCost = getEstimatedUnitCost(product, costHistory);
+    if (!acc[key]) {
+      acc[key] = {
+        category: key,
+        productCount: 0,
+        totalStock: 0,
+        estimatedValue: 0,
+        lowStockCount: 0,
+      };
+    }
+    acc[key].productCount += 1;
+    acc[key].totalStock += Number(product.stock || 0);
+    acc[key].estimatedValue += Number(product.stock || 0) * unitCost;
+    if (Number(product.stock || 0) <= Number(product.minStock || 0)) acc[key].lowStockCount += 1;
+    return acc;
+  }, {})).sort((a, b) => b.estimatedValue - a.estimatedValue);
+
   return (
     <div className="space-y-8">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -88,6 +125,48 @@ export default function Dashboard({ products, transactions, costHistory }) {
           <p className="mt-1 text-sm">สต็อคทุกตัวสูงกว่าระดับแจ้งเตือนขั้นต่ำ</p>
         </section>
       )}
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <Card className="p-5 md:p-6">
+          <h2 className="text-xl font-black text-neutral-950">สินค้าเบิกบ่อยที่สุดเดือนนี้</h2>
+          <p className="mt-1 text-sm text-neutral-500">จัดอันดับจากจำนวนที่ถูกเบิกออกในเดือนปัจจุบัน</p>
+          <div className="mt-5 space-y-3">
+            {topUsedProducts.length > 0 ? topUsedProducts.map((item, index) => (
+              <div key={item.productId} className="flex items-center justify-between rounded-2xl border border-neutral-100 bg-white p-4">
+                <div>
+                  <p className="font-black text-neutral-950">#{index + 1} {item.productName}</p>
+                  <p className="text-xs text-neutral-400">มูลค่าใช้ไปประมาณ {formatMoney(item.estimatedCost)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-neutral-950">{formatNumber(item.quantity)} {item.unit}</p>
+                  <p className="text-xs text-neutral-400">ถูกเบิก</p>
+                </div>
+              </div>
+            )) : <div className="rounded-2xl bg-white p-8 text-center text-neutral-500">เดือนนี้ยังไม่มีรายการเบิกออก</div>}
+          </div>
+        </Card>
+
+        <Card className="p-5 md:p-6">
+          <h2 className="text-xl font-black text-neutral-950">สรุปตามหมวดหมู่</h2>
+          <p className="mt-1 text-sm text-neutral-500">ดูจำนวนสินค้า มูลค่าสต็อค และรายการใกล้หมดแยกตามหมวด</p>
+          <div className="mt-5 space-y-3">
+            {categorySummary.map((item) => (
+              <div key={item.category} className="rounded-2xl border border-neutral-100 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-black text-neutral-950">{item.category}</p>
+                    <p className="text-xs text-neutral-400">{item.productCount} รายการ / รวม {formatNumber(item.totalStock)} ชิ้น</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-neutral-950">{formatMoney(item.estimatedValue)}</p>
+                    <p className={item.lowStockCount > 0 ? 'text-xs font-black text-red-600' : 'text-xs text-neutral-400'}>ใกล้หมด {item.lowStockCount} รายการ</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </section>
 
       <section className="grid gap-6 xl:grid-cols-3">
         <Card className="p-5 md:p-6 xl:col-span-1">
