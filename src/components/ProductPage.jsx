@@ -1,7 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { categoryOptions, productTypeOptions, unitOptions } from '../data/constants.js';
-import { Button, Card, Field, Modal, SelectInput, TextArea, TextInput } from './ui.jsx';
+import { Card, Field, Modal, SelectInput, TextArea, TextInput } from './ui.jsx';
 import { createId, createProduct, formatMoney, formatNumber, getCostStats, getSupplierStats, nowIso, toSafeNumber } from '../lib/inventory.js';
+
+function getProductFinancials(product, costHistory) {
+  const records = costHistory.filter((item) => item.productId === product.id);
+  const costStats = getCostStats(records);
+  const latestCost = costStats.latestCost || toSafeNumber(product.cost);
+  const averageCost = costStats.averageCost || latestCost || toSafeNumber(product.cost);
+  const stockValue = toSafeNumber(product.stock) * averageCost;
+  return { records, costStats, latestCost, averageCost, stockValue };
+}
 
 export default function ProductPage({ products, setProducts, setTransactions, costHistory, setCostHistory }) {
   const [query, setQuery] = useState('');
@@ -23,6 +32,22 @@ export default function ProductPage({ products, setProducts, setTransactions, co
     });
   }, [products, query, categoryFilter, typeFilter]);
 
+  const productRows = useMemo(() => {
+    return filteredProducts.map((product) => ({
+      product,
+      financials: getProductFinancials(product, costHistory),
+      supplierInfo: getSupplierStats(costHistory.filter((item) => item.productId === product.id)),
+    }));
+  }, [filteredProducts, costHistory]);
+
+  const pageSummary = useMemo(() => {
+    const allRows = products.map((product) => ({ product, financials: getProductFinancials(product, costHistory) }));
+    const totalInventoryValue = allRows.reduce((sum, row) => sum + row.financials.stockValue, 0);
+    const filteredInventoryValue = productRows.reduce((sum, row) => sum + row.financials.stockValue, 0);
+    const highestValueRow = [...productRows].sort((a, b) => b.financials.stockValue - a.financials.stockValue)[0];
+    return { totalInventoryValue, filteredInventoryValue, highestValueRow };
+  }, [products, productRows, costHistory]);
+
   const openInfoEditor = (product) => {
     setInfoEditor(product);
     setInfoForm({
@@ -35,10 +60,6 @@ export default function ProductPage({ products, setProducts, setTransactions, co
       supplier: product.supplier,
       note: product.note,
     });
-  };
-
-  const openCostViewer = (product) => {
-    setCostViewer({ ...product });
   };
 
   const saveInfoEditor = () => {
@@ -74,10 +95,7 @@ export default function ProductPage({ products, setProducts, setTransactions, co
     setDeleteTarget(null);
   };
 
-  const renderProductCard = (product) => {
-    const records = costHistory.filter((item) => item.productId === product.id);
-    const costStats = getCostStats(records);
-    const supplierInfo = getSupplierStats(records);
+  const renderProductCard = ({ product, financials, supplierInfo }) => {
     const latestSupplier = supplierInfo.latestSupplier || product.supplier || '-';
     const lowStock = toSafeNumber(product.stock) <= toSafeNumber(product.minStock);
 
@@ -90,17 +108,23 @@ export default function ProductPage({ products, setProducts, setTransactions, co
           </div>
           <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${lowStock ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{product.stock} {product.unit}</span>
         </div>
+
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-neutral-400">หมวดหมู่</p><p className="mt-1 font-black text-neutral-700">{product.category}</p></div>
           <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-neutral-400">ประเภท</p><p className="mt-1 font-black text-neutral-700">{product.productType || '-'}</p></div>
-          <div className="rounded-2xl bg-amber-50 p-3 text-amber-800"><p className="text-amber-600">ต้นทุนล่าสุด</p><p className="mt-1 font-black">{formatMoney(costStats.latestCost || product.cost)}</p></div>
-          <div className="rounded-2xl bg-blue-50 p-3 text-blue-800"><p className="text-blue-600">ต้นทุนเฉลี่ย</p><p className="mt-1 font-black">{formatMoney(costStats.averageCost || product.cost)}</p></div>
+          <div className="rounded-2xl bg-amber-50 p-3 text-amber-800"><p className="text-amber-600">ต้นทุนเฉลี่ย</p><p className="mt-1 font-black">{formatMoney(financials.averageCost)}</p></div>
+          <div className="rounded-2xl bg-purple-50 p-3 text-purple-800"><p className="text-purple-600">มูลค่าคงเหลือ</p><p className="mt-1 font-black">{formatMoney(financials.stockValue)}</p></div>
         </div>
-        <div className="mt-3 rounded-2xl bg-neutral-50 p-3 text-xs text-neutral-500"><span className="font-black text-neutral-700">ซัพพลายเออร์ล่าสุด:</span> {latestSupplier}<div className="mt-0.5 text-neutral-400">เคยซื้อ {supplierInfo.supplierCount} เจ้า / แจ้งเตือน ≤ {product.minStock}</div></div>
+
+        <div className="mt-3 rounded-2xl bg-neutral-50 p-3 text-xs text-neutral-500">
+          <span className="font-black text-neutral-700">ซัพพลายเออร์ล่าสุด:</span> {latestSupplier}
+          <div className="mt-0.5 text-neutral-400">เคยซื้อ {supplierInfo.supplierCount} เจ้า / แจ้งเตือน ≤ {product.minStock}</div>
+        </div>
+
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm font-black text-blue-700" onClick={() => openInfoEditor(product)}>✏️ แก้ไข</button>
           <button type="button" className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-black text-amber-800" onClick={() => openStockEditor(product)}>📦 สต็อค</button>
-          <button type="button" className="rounded-2xl border border-purple-200 bg-purple-50 px-3 py-3 text-sm font-black text-purple-700" onClick={() => openCostViewer(product)}>📈 ต้นทุน</button>
+          <button type="button" className="rounded-2xl border border-purple-200 bg-purple-50 px-3 py-3 text-sm font-black text-purple-700" onClick={() => setCostViewer(product)}>📈 ต้นทุน</button>
           <button type="button" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm font-black text-red-700" onClick={() => setDeleteTarget(product)}>🗑️ ลบ</button>
         </div>
       </div>
@@ -112,7 +136,7 @@ export default function ProductPage({ products, setProducts, setTransactions, co
       <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-xl font-black text-neutral-950">จัดการสินค้าและจำนวนคงเหลือ</h2>
-          <p className="text-sm text-neutral-500">ดูจำนวนคงเหลือ ค้นหา แก้ไข ลบ และดูประวัติต้นทุนสินค้า</p>
+          <p className="text-sm text-neutral-500">ดูจำนวนคงเหลือ ต้นทุนเฉลี่ย และมูลค่าสต็อคคงเหลือของแต่ละสินค้า</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <TextInput placeholder="🔎 ค้นหา" value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -121,17 +145,32 @@ export default function ProductPage({ products, setProducts, setTransactions, co
         </div>
       </div>
 
-      <div className="space-y-3 md:hidden">{filteredProducts.map(renderProductCard)}{filteredProducts.length === 0 ? <div className="rounded-3xl bg-white p-8 text-center text-neutral-500">ไม่พบสินค้า</div> : null}</div>
+      <div className="mb-5 grid gap-3 md:grid-cols-3">
+        <div className="rounded-3xl border border-pink-200 bg-pink-50 p-4 text-pink-800">
+          <p className="text-xs font-black">มูลค่าสต็อครวมทั้งหมด</p>
+          <p className="mt-1 text-2xl font-black">{formatMoney(pageSummary.totalInventoryValue)}</p>
+        </div>
+        <div className="rounded-3xl border border-purple-200 bg-purple-50 p-4 text-purple-800">
+          <p className="text-xs font-black">มูลค่าของรายการที่แสดง</p>
+          <p className="mt-1 text-2xl font-black">{formatMoney(pageSummary.filteredInventoryValue)}</p>
+        </div>
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+          <p className="text-xs font-black">สินค้ามูลค่าสต็อคสูงสุด</p>
+          <p className="mt-1 truncate text-lg font-black">{pageSummary.highestValueRow?.product.name || '-'}</p>
+          <p className="text-sm font-black">{pageSummary.highestValueRow ? formatMoney(pageSummary.highestValueRow.financials.stockValue) : formatMoney(0)}</p>
+        </div>
+      </div>
+
+      <div className="space-y-3 md:hidden">{productRows.map(renderProductCard)}{productRows.length === 0 ? <div className="rounded-3xl bg-white p-8 text-center text-neutral-500">ไม่พบสินค้า</div> : null}</div>
 
       <div className="hidden overflow-hidden rounded-2xl border border-neutral-200 bg-white md:block">
         <div className="max-h-[560px] overflow-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="sticky top-0 bg-neutral-100 text-neutral-600"><tr><th className="px-3 py-3">สินค้า</th><th className="px-3 py-3">หมวดหมู่</th><th className="px-3 py-3">ประเภท</th><th className="px-3 py-3">คงเหลือ</th><th className="px-3 py-3">ต้นทุน</th><th className="px-3 py-3">เฉลี่ย</th><th className="px-3 py-3">ซัพพลายเออร์ล่าสุด</th><th className="px-3 py-3 text-right">จัดการ</th></tr></thead>
+          <table className="w-full min-w-[1120px] text-left text-sm">
+            <thead className="sticky top-0 bg-neutral-100 text-neutral-600">
+              <tr><th className="px-3 py-3">สินค้า</th><th className="px-3 py-3">หมวดหมู่</th><th className="px-3 py-3">ประเภท</th><th className="px-3 py-3">คงเหลือ</th><th className="px-3 py-3">ต้นทุนเฉลี่ย</th><th className="px-3 py-3">มูลค่าคงเหลือ</th><th className="px-3 py-3">ซัพพลายเออร์ล่าสุด</th><th className="px-3 py-3 text-right">จัดการ</th></tr>
+            </thead>
             <tbody>
-              {filteredProducts.map((product) => {
-                const records = costHistory.filter((item) => item.productId === product.id);
-                const costStats = getCostStats(records);
-                const supplierInfo = getSupplierStats(records);
+              {productRows.map(({ product, financials, supplierInfo }) => {
                 const latestSupplier = supplierInfo.latestSupplier || product.supplier || '-';
                 const lowStock = toSafeNumber(product.stock) <= toSafeNumber(product.minStock);
                 return (
@@ -140,16 +179,16 @@ export default function ProductPage({ products, setProducts, setTransactions, co
                     <td className="px-3 py-3 text-neutral-600"><div className="max-w-[135px] truncate" title={product.category}>{product.category}</div></td>
                     <td className="px-3 py-3 text-neutral-600"><div className="max-w-[140px] truncate rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-black text-neutral-700">{product.productType || '-'}</div></td>
                     <td className="px-3 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-black ${lowStock ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{product.stock} {product.unit}</span><div className="mt-1 text-[11px] text-neutral-400">≤ {product.minStock}</div></td>
-                    <td className="px-3 py-3 font-black text-neutral-700">{formatMoney(costStats.latestCost || product.cost)}</td>
-                    <td className="px-3 py-3 text-neutral-600">{formatMoney(costStats.averageCost || product.cost)}</td>
+                    <td className="px-3 py-3 font-black text-neutral-700">{formatMoney(financials.averageCost)}</td>
+                    <td className="px-3 py-3 font-black text-purple-700">{formatMoney(financials.stockValue)}</td>
                     <td className="px-3 py-3 text-neutral-600"><div className="max-w-[130px] truncate font-black text-neutral-700">{latestSupplier}</div><div className="mt-1 text-[11px] text-neutral-400">เคยซื้อ {supplierInfo.supplierCount} เจ้า</div></td>
-                    <td className="px-3 py-3 text-right"><div className="flex flex-nowrap justify-end gap-1.5"><button type="button" className="rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs font-black text-blue-700" onClick={() => openInfoEditor(product)}>✏️ แก้ไข</button><button type="button" className="rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs font-black text-amber-800" onClick={() => openStockEditor(product)}>📦 สต็อค</button><button type="button" className="rounded-xl border border-purple-200 bg-purple-50 px-2.5 py-2 text-xs font-black text-purple-700" onClick={() => openCostViewer(product)}>📈 ต้นทุน</button><button type="button" className="rounded-xl border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-black text-red-700" onClick={() => setDeleteTarget(product)}>🗑️ ลบ</button></div></td>
+                    <td className="px-3 py-3 text-right"><div className="flex flex-nowrap justify-end gap-1.5"><button type="button" className="rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs font-black text-blue-700" onClick={() => openInfoEditor(product)}>✏️ แก้ไข</button><button type="button" className="rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs font-black text-amber-800" onClick={() => openStockEditor(product)}>📦 สต็อค</button><button type="button" className="rounded-xl border border-purple-200 bg-purple-50 px-2.5 py-2 text-xs font-black text-purple-700" onClick={() => setCostViewer(product)}>📈 ต้นทุน</button><button type="button" className="rounded-xl border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-black text-red-700" onClick={() => setDeleteTarget(product)}>🗑️ ลบ</button></div></td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          {filteredProducts.length === 0 ? <div className="p-10 text-center text-neutral-500">ไม่พบสินค้า</div> : null}
+          {productRows.length === 0 ? <div className="p-10 text-center text-neutral-500">ไม่พบสินค้า</div> : null}
         </div>
       </div>
 
@@ -168,18 +207,17 @@ function CostHistoryModal({ product, costHistory, onClose }) {
   const averageCost = stats.averageCost || toSafeNumber(product.cost);
   const minCost = stats.minCost || toSafeNumber(product.cost);
   const maxCost = stats.maxCost || toSafeNumber(product.cost);
+  const stockValue = toSafeNumber(product.stock) * averageCost;
   return (
     <Modal title="📈 ประวัติต้นทุนสินค้า" subtitle={product.name} onCancel={onClose} hideSave maxWidth="max-w-3xl">
       <div className="space-y-4">
-        <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4 text-purple-800">
-          <p className="font-black">เปิดข้อมูลต้นทุนของสินค้าแล้ว</p>
-          <p className="mt-1 text-sm">ถ้ายังไม่มีประวัติรับเข้า ระบบจะแสดงต้นทุนล่าสุดจากข้อมูลสินค้าแทน และแนะนำให้รับเข้าสินค้าเพื่อสร้างประวัติต้นทุนจริง</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4 text-purple-800"><p className="font-black">เปิดข้อมูลต้นทุนของสินค้าแล้ว</p><p className="mt-1 text-sm">มูลค่าสต็อคคงเหลือคำนวณจากจำนวนคงเหลือ × ต้นทุนเฉลี่ย</p></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-2xl bg-neutral-950 p-4 text-white"><p className="text-xs text-neutral-300">ต้นทุนล่าสุด</p><p className="text-xl font-black">{formatMoney(latestCost)}</p></div>
           <div className="rounded-2xl bg-emerald-50 p-4 text-emerald-800"><p className="text-xs">ต้นทุนเฉลี่ย</p><p className="text-xl font-black">{formatMoney(averageCost)}</p></div>
-          <div className="rounded-2xl bg-blue-50 p-4 text-blue-800"><p className="text-xs">ต่ำสุด / สูงสุด</p><p className="text-xl font-black">{formatMoney(minCost)} / {formatMoney(maxCost)}</p></div>
+          <div className="rounded-2xl bg-blue-50 p-4 text-blue-800"><p className="text-xs">ต่ำสุด / สูงสุด</p><p className="text-lg font-black">{formatMoney(minCost)} / {formatMoney(maxCost)}</p></div>
           <div className="rounded-2xl bg-amber-50 p-4 text-amber-800"><p className="text-xs">รวมซื้อเข้า</p><p className="text-xl font-black">{formatNumber(stats.totalQty)} {product.unit}</p></div>
+          <div className="rounded-2xl bg-purple-50 p-4 text-purple-800"><p className="text-xs">มูลค่าคงเหลือ</p><p className="text-xl font-black">{formatMoney(stockValue)}</p></div>
         </div>
         <div className="overflow-auto rounded-2xl border border-neutral-200">
           <table className="w-full min-w-[680px] text-left text-sm">
