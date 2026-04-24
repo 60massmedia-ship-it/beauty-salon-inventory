@@ -5,6 +5,7 @@ import ProductPage from './components/ProductPage.jsx';
 import { Button, Modal } from './components/ui.jsx';
 import { STORAGE_KEYS } from './data/constants.js';
 import { exportCsv, exportJson } from './lib/export.js';
+import { LANGUAGE_STORAGE_KEY, useAutoTranslate } from './lib/language.js';
 import {
   getCostStats,
   normalizeCostHistory,
@@ -34,6 +35,15 @@ function readThemeMode() {
   }
 }
 
+function readLanguageMode() {
+  try {
+    const value = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return value === 'en' ? 'en' : 'th';
+  } catch {
+    return 'th';
+  }
+}
+
 function ThemeToggle({ themeMode, onToggle }) {
   const isNight = themeMode === 'night';
   return (
@@ -48,6 +58,25 @@ function ThemeToggle({ themeMode, onToggle }) {
       <span className="absolute right-3 text-sm font-black transition-opacity duration-300">🌙</span>
       <span className={`theme-toggle-thumb relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-base shadow-lg transition-transform duration-300 ${isNight ? 'translate-x-[55px]' : 'translate-x-0'}`}>
         {isNight ? '🌙' : '☀️'}
+      </span>
+    </button>
+  );
+}
+
+function LanguageToggle({ languageMode, onToggle }) {
+  const isEnglish = languageMode === 'en';
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={isEnglish}
+      aria-label={isEnglish ? 'Switch to Thai language' : 'Switch to English language'}
+      className={`language-toggle relative inline-flex h-12 w-[112px] shrink-0 items-center rounded-full border p-1.5 transition-all duration-300 ${isEnglish ? 'is-en border-white/40 bg-white/20' : 'border-white/60 bg-white/20'}`}
+    >
+      <span className="absolute left-3 text-xs font-black text-white/75">TH</span>
+      <span className="absolute right-3 text-xs font-black text-white/75">EN</span>
+      <span className={`language-toggle-thumb relative z-10 flex h-9 w-12 items-center justify-center rounded-full bg-white text-xs font-black text-pink-700 shadow-lg transition-transform duration-300 ${isEnglish ? 'translate-x-[49px]' : 'translate-x-0'}`}>
+        {isEnglish ? 'EN' : 'TH'}
       </span>
     </button>
   );
@@ -69,6 +98,8 @@ export default function BeautySalonInventoryApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [themeMode, setThemeMode] = useState(readThemeMode);
+  const [languageMode, setLanguageMode] = useState(readLanguageMode);
+  useAutoTranslate(languageMode);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
@@ -86,6 +117,10 @@ export default function BeautySalonInventoryApp() {
     localStorage.setItem(THEME_STORAGE_KEY, themeMode);
   }, [themeMode]);
 
+  useEffect(() => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, languageMode);
+  }, [languageMode]);
+
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊', helper: 'ภาพรวมร้าน' },
     { id: 'stock', label: 'บันทึกสต็อค', icon: '🧾', helper: 'รับเข้า / เบิกออก' },
@@ -93,7 +128,7 @@ export default function BeautySalonInventoryApp() {
   ];
 
   const lowStockCount = products.filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0)).length;
-  const todayLabel = new Date().toLocaleDateString('th-TH', { dateStyle: 'medium' });
+  const todayLabel = new Date().toLocaleDateString(languageMode === 'en' ? 'en-US' : 'th-TH', { dateStyle: 'medium' });
 
   const exportData = () => {
     exportJson(`beauty-salon-inventory-${new Date().toISOString().slice(0, 10)}.json`, {
@@ -130,7 +165,7 @@ export default function BeautySalonInventoryApp() {
     exportCsv(`beauty-salon-transactions-${new Date().toISOString().slice(0, 10)}.csv`, [
       ['วันที่', 'สินค้า', 'ประเภท', 'จำนวน', 'เหตุผล'],
       ...transactions.map((item) => [
-        new Date(item.createdAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }),
+        new Date(item.createdAt).toLocaleString(languageMode === 'en' ? 'en-US' : 'th-TH', { dateStyle: 'medium', timeStyle: 'short' }),
         item.productName,
         item.type,
         item.quantity,
@@ -143,7 +178,7 @@ export default function BeautySalonInventoryApp() {
     exportCsv(`beauty-salon-cost-history-${new Date().toISOString().slice(0, 10)}.csv`, [
       ['วันที่', 'สินค้า', 'จำนวนเข้า', 'ต้นทุนต่อหน่วย', 'ซัพพลายเออร์', 'หมายเหตุ'],
       ...costHistory.map((item) => [
-        new Date(item.createdAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }),
+        new Date(item.createdAt).toLocaleString(languageMode === 'en' ? 'en-US' : 'th-TH', { dateStyle: 'medium', timeStyle: 'short' }),
         item.productName,
         item.quantity,
         item.unitCost,
@@ -170,7 +205,7 @@ export default function BeautySalonInventoryApp() {
         setTransactions(Array.isArray(data.transactions) ? data.transactions : []);
         setCostHistory(normalizeCostHistory(data.costHistory || []));
       } catch {
-        window.alert('ไฟล์ไม่ถูกต้อง กรุณาใช้ไฟล์ JSON ที่ Export จากระบบนี้');
+        window.alert(languageMode === 'en' ? 'Invalid file. Please use a JSON file exported from this system.' : 'ไฟล์ไม่ถูกต้อง กรุณาใช้ไฟล์ JSON ที่ Export จากระบบนี้');
       }
     };
     reader.readAsText(file);
@@ -196,6 +231,7 @@ export default function BeautySalonInventoryApp() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+              <LanguageToggle languageMode={languageMode} onToggle={() => setLanguageMode((mode) => (mode === 'th' ? 'en' : 'th'))} />
               <ThemeToggle themeMode={themeMode} onToggle={() => setThemeMode((mode) => (mode === 'day' ? 'night' : 'day'))} />
               <Button className="bg-white text-neutral-950 hover:bg-neutral-100" onClick={() => setShowExportMenu(true)}>⬇ Export</Button>
               <label className="premium-button inline-flex min-h-[48px] cursor-pointer items-center justify-center rounded-[1.15rem] bg-white/10 px-5 py-3 text-sm font-black text-white ring-1 ring-white/15 transition hover:-translate-y-0.5 hover:bg-white/20 active:scale-[0.98]">
