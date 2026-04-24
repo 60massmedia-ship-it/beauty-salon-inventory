@@ -6,8 +6,6 @@ import { Button, Modal } from './components/ui.jsx';
 import { STORAGE_KEYS } from './data/constants.js';
 import { exportCsv, exportJson } from './lib/export.js';
 import {
-  createCostRecord,
-  formatMoney,
   getCostStats,
   normalizeCostHistory,
   normalizeProducts,
@@ -187,7 +185,7 @@ export default function BeautySalonInventoryApp() {
         </nav>
 
         {activeTab === 'dashboard' ? <Dashboard products={products} transactions={transactions} costHistory={costHistory} /> : null}
-        {activeTab === 'stock' ? <StockPage products={products} setProducts={setProducts} setTransactions={setTransactions} setCostHistory={setCostHistory} /> : null}
+        {activeTab === 'stock' ? <StockPage products={products} setProducts={setProducts} transactions={transactions} setTransactions={setTransactions} setCostHistory={setCostHistory} /> : null}
         {activeTab === 'products' ? <ProductPage products={products} setProducts={setProducts} setTransactions={setTransactions} costHistory={costHistory} setCostHistory={setCostHistory} /> : null}
 
         <nav className="fixed inset-x-3 bottom-3 z-40 rounded-[1.7rem] border border-white/70 bg-white/90 p-2 shadow-2xl backdrop-blur md:hidden" style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
