@@ -2,12 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --salon-primary: #be185d;
+  --salon-primary-deep: #9d174d;
+  --salon-primary-soft: #fce7f3;
+  --salon-rose: #e9a6b3;
+  --salon-bg: #fff8fb;
+  --salon-card: rgba(255, 250, 253, 0.92);
+  --salon-border: rgba(251, 207, 232, 0.92);
+  --salon-text: #4a044e;
+  --salon-muted: #9d174d;
+  --salon-shadow: 0 18px 45px rgba(190, 24, 93, 0.11);
+}
+
 * {
   box-sizing: border-box;
 }
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -19,7 +33,8 @@ body {
     radial-gradient(circle at 8% 0%, rgba(244, 114, 182, 0.28), transparent 34%),
     radial-gradient(circle at 92% 8%, rgba(251, 207, 232, 0.8), transparent 32%),
     linear-gradient(135deg, #fff7fb 0%, #fff1f7 42%, #ffffff 100%);
-  color: #4a044e;
+  color: var(--salon-text);
+  text-rendering: geometricPrecision;
 }
 
 button,
@@ -29,14 +44,36 @@ textarea {
   font: inherit;
 }
 
+button,
+label,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
 ::selection {
   background: #f9a8d4;
   color: #831843;
 }
 
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(252, 231, 243, 0.55);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(190, 24, 93, 0.35);
+  border-radius: 999px;
+  border: 2px solid rgba(255, 248, 251, 0.9);
+}
+
 @layer components {
   .salon-pink-surface {
-    background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(253,242,248,0.92));
+    background: linear-gradient(135deg, rgba(255,255,255,0.94), rgba(253,242,248,0.94));
     border-color: rgba(251, 207, 232, 0.9);
   }
 }
@@ -47,18 +84,90 @@ textarea {
   }
 
   .theme-day {
+    --salon-primary: #be185d;
+    --salon-primary-deep: #9d174d;
+    --salon-primary-soft: #fce7f3;
+    --salon-rose: #e9a6b3;
+    --salon-bg: #fff8fb;
+    --salon-card: rgba(255, 250, 253, 0.92);
+    --salon-border: rgba(251, 207, 232, 0.92);
+    --salon-text: #4a044e;
+    --salon-muted: #9d174d;
+    --salon-shadow: 0 18px 45px rgba(190, 24, 93, 0.11);
     background:
-      radial-gradient(circle at 8% 0%, rgba(244, 114, 182, 0.28), transparent 34%),
-      radial-gradient(circle at 92% 8%, rgba(251, 207, 232, 0.8), transparent 32%),
-      linear-gradient(135deg, #fff7fb 0%, #fff1f7 42%, #ffffff 100%) !important;
+      radial-gradient(circle at 8% 0%, rgba(244, 114, 182, 0.24), transparent 34%),
+      radial-gradient(circle at 92% 8%, rgba(251, 207, 232, 0.72), transparent 32%),
+      linear-gradient(135deg, #fff8fb 0%, #fff1f7 42%, #ffffff 100%) !important;
   }
 
   .theme-night {
+    --salon-primary: #e879f9;
+    --salon-primary-deep: #f9a8d4;
+    --salon-primary-soft: rgba(190, 24, 93, 0.2);
+    --salon-rose: #f0abfc;
+    --salon-bg: #140517;
+    --salon-card: rgba(42, 15, 45, 0.88);
+    --salon-border: rgba(244, 114, 182, 0.28);
+    --salon-text: #fdf2f8;
+    --salon-muted: #f9a8d4;
+    --salon-shadow: 0 22px 55px rgba(0, 0, 0, 0.36);
     background:
       radial-gradient(circle at 10% 0%, rgba(236, 72, 153, 0.28), transparent 34%),
       radial-gradient(circle at 88% 8%, rgba(139, 92, 246, 0.22), transparent 32%),
       linear-gradient(135deg, #17051a 0%, #2a0f2d 45%, #0f0712 100%) !important;
     color: #fdf2f8;
+  }
+
+  .premium-card {
+    border-color: var(--salon-border) !important;
+    background: var(--salon-card) !important;
+    box-shadow: var(--salon-shadow) !important;
+  }
+
+  .premium-card:hover {
+    box-shadow: 0 22px 55px rgba(190, 24, 93, 0.14) !important;
+  }
+
+  .premium-button {
+    box-shadow: 0 10px 24px rgba(190, 24, 93, 0.12);
+  }
+
+  .premium-button:focus-visible,
+  .premium-input:focus-visible,
+  button:focus-visible {
+    outline: 3px solid rgba(244, 114, 182, 0.35);
+    outline-offset: 2px;
+  }
+
+  .premium-input {
+    border-color: rgba(251, 207, 232, 0.95) !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    color: var(--salon-text) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 8px 20px rgba(190, 24, 93, 0.04);
+  }
+
+  .premium-input:hover {
+    border-color: rgba(244, 114, 182, 0.8) !important;
+  }
+
+  .premium-input:focus {
+    border-color: #db2777 !important;
+    box-shadow: 0 0 0 4px rgba(244, 114, 182, 0.16), inset 0 1px 0 rgba(255,255,255,0.85) !important;
+  }
+
+  .premium-input::placeholder {
+    color: rgba(157, 23, 77, 0.55) !important;
+  }
+
+  .premium-modal {
+    background: var(--salon-card) !important;
+    border: 1px solid var(--salon-border);
+  }
+
+  .premium-modal-header,
+  .premium-modal-actions {
+    background: rgba(255, 250, 253, 0.96) !important;
+    border-color: var(--salon-border) !important;
   }
 
   .theme-toggle {
@@ -78,9 +187,15 @@ textarea {
     color: #581c87;
   }
 
-  /* Pink White Salon Theme Overrides */
+  /* Premium Pink Salon Theme Overrides */
   .bg-neutral-950 {
-    background-color: #be185d !important;
+    background: linear-gradient(135deg, #be185d 0%, #9d174d 55%, #701a75 100%) !important;
+  }
+
+  header.bg-neutral-950 {
+    background:
+      radial-gradient(circle at 14% 0%, rgba(255, 255, 255, 0.22), transparent 26%),
+      linear-gradient(135deg, #be185d 0%, #9d174d 45%, #581c87 100%) !important;
   }
 
   .hover\:bg-neutral-800:hover,
@@ -89,13 +204,13 @@ textarea {
   }
 
   .text-neutral-950 {
-    color: #4a044e !important;
+    color: var(--salon-text) !important;
   }
 
   .text-neutral-700,
   .text-neutral-600,
   .text-neutral-500 {
-    color: #831843 !important;
+    color: var(--salon-muted) !important;
   }
 
   .text-neutral-400 {
@@ -106,18 +221,18 @@ textarea {
   .border-neutral-200,
   .border-neutral-100,
   .border-white\/70 {
-    border-color: #fbcfe8 !important;
+    border-color: var(--salon-border) !important;
   }
 
   .bg-neutral-100,
   .bg-neutral-50 {
-    background-color: #fdf2f8 !important;
+    background-color: rgba(253, 242, 248, 0.88) !important;
   }
 
   .bg-white\/85,
   .bg-white\/80,
   .bg-white\/90 {
-    background-color: rgba(255, 247, 251, 0.9) !important;
+    background-color: rgba(255, 247, 251, 0.92) !important;
   }
 
   .bg-white {
@@ -129,7 +244,8 @@ textarea {
     box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.18);
   }
 
-  .ring-black\/10 {
+  .ring-black\/10,
+  .ring-pink-950\/10 {
     --tw-ring-color: rgba(190, 24, 93, 0.12) !important;
   }
 
@@ -139,20 +255,42 @@ textarea {
     --tw-shadow-color: rgba(190, 24, 93, 0.14) !important;
   }
 
+  table thead {
+    background: linear-gradient(135deg, rgba(252, 231, 243, 0.96), rgba(255, 247, 251, 0.96)) !important;
+  }
+
+  table tbody tr {
+    transition: background 0.16s ease, transform 0.16s ease;
+  }
+
+  table tbody tr:hover {
+    background: rgba(252, 231, 243, 0.45) !important;
+  }
+
   /* Night mode overrides */
   .theme-night .bg-neutral-950 {
-    background-color: #701a75 !important;
+    background: linear-gradient(135deg, #831843 0%, #581c87 60%, #111827 100%) !important;
   }
 
   .theme-night header.bg-neutral-950 {
-    background: linear-gradient(135deg, #831843 0%, #4c1d95 55%, #111827 100%) !important;
+    background:
+      radial-gradient(circle at 14% 0%, rgba(244, 114, 182, 0.28), transparent 30%),
+      linear-gradient(135deg, #831843 0%, #4c1d95 55%, #111827 100%) !important;
   }
 
+  .theme-night .premium-card,
   .theme-night .bg-white,
   .theme-night .bg-white\/85,
   .theme-night .bg-white\/80,
   .theme-night .bg-white\/90 {
     background-color: rgba(45, 16, 52, 0.92) !important;
+  }
+
+  .theme-night .premium-modal,
+  .theme-night .premium-modal-header,
+  .theme-night .premium-modal-actions {
+    background-color: rgba(42, 15, 45, 0.98) !important;
+    border-color: rgba(244, 114, 182, 0.28) !important;
   }
 
   .theme-night .bg-neutral-100,
@@ -178,6 +316,7 @@ textarea {
     opacity: 0.86;
   }
 
+  .theme-night .premium-input,
   .theme-night input,
   .theme-night select,
   .theme-night textarea {
@@ -200,5 +339,13 @@ textarea {
   .theme-night .shadow-2xl,
   .theme-night .shadow-sm {
     --tw-shadow-color: rgba(0, 0, 0, 0.45) !important;
+  }
+
+  .theme-night table thead {
+    background: rgba(88, 28, 135, 0.38) !important;
+  }
+
+  .theme-night table tbody tr:hover {
+    background: rgba(190, 24, 93, 0.14) !important;
   }
 }
