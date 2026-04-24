@@ -99,7 +99,7 @@ export default function BeautySalonInventoryApp() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [languageMode, setLanguageMode] = useState(readLanguageMode);
-  useAutoTranslate(languageMode);
+  useAutoTranslate(languageMode, activeTab);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
