@@ -94,14 +94,13 @@ export default function BeautySalonInventoryApp() {
 
   const exportCostHistoryCsv = () => {
     exportCsv(`beauty-salon-cost-history-${new Date().toISOString().slice(0, 10)}.csv`, [
-      ['วันที่', 'สินค้า', 'จำนวนเข้า', 'ต้นทุนต่อหน่วย', 'ซัพพลายเออร์', 'เลขที่บิล', 'หมายเหตุ'],
+      ['วันที่', 'สินค้า', 'จำนวนเข้า', 'ต้นทุนต่อหน่วย', 'ซัพพลายเออร์', 'หมายเหตุ'],
       ...costHistory.map((item) => [
         new Date(item.createdAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }),
         item.productName,
         item.quantity,
         item.unitCost,
         item.supplier,
-        item.invoiceNo,
         item.note,
       ]),
     ]);
