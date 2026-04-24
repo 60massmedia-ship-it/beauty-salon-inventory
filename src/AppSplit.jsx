@@ -14,6 +14,8 @@ import {
   sampleProducts,
 } from './lib/inventory.js';
 
+const THEME_STORAGE_KEY = 'beauty_salon_inventory_theme_mode';
+
 function readStorage(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -23,12 +25,41 @@ function readStorage(key, fallback) {
   }
 }
 
+function readThemeMode() {
+  try {
+    const value = localStorage.getItem(THEME_STORAGE_KEY);
+    return value === 'night' ? 'night' : 'day';
+  } catch {
+    return 'day';
+  }
+}
+
+function ThemeToggle({ themeMode, onToggle }) {
+  const isNight = themeMode === 'night';
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={isNight}
+      aria-label={isNight ? 'Switch to day mode' : 'Switch to night mode'}
+      className={`theme-toggle relative inline-flex h-12 w-[104px] shrink-0 items-center rounded-full border p-1.5 transition-all duration-300 ${isNight ? 'is-night border-fuchsia-300/30 bg-slate-950/70' : 'border-white/60 bg-white/20'}`}
+    >
+      <span className="absolute left-3 text-sm font-black transition-opacity duration-300">☀️</span>
+      <span className="absolute right-3 text-sm font-black transition-opacity duration-300">🌙</span>
+      <span className={`theme-toggle-thumb relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-base shadow-lg transition-transform duration-300 ${isNight ? 'translate-x-[55px]' : 'translate-x-0'}`}>
+        {isNight ? '🌙' : '☀️'}
+      </span>
+    </button>
+  );
+}
+
 export default function BeautySalonInventoryApp() {
   const [products, setProducts] = useState(() => normalizeProducts(readStorage(STORAGE_KEYS.products, sampleProducts)));
   const [transactions, setTransactions] = useState(() => readStorage(STORAGE_KEYS.transactions, []));
   const [costHistory, setCostHistory] = useState(() => normalizeCostHistory(readStorage(STORAGE_KEYS.costHistory, sampleCostHistory)));
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [themeMode, setThemeMode] = useState(readThemeMode);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
@@ -41,6 +72,10 @@ export default function BeautySalonInventoryApp() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.costHistory, JSON.stringify(costHistory));
   }, [costHistory]);
+
+  useEffect(() => {
+    localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+  }, [themeMode]);
 
   const tabs = [
     { id: 'dashboard', label: '📊 Dashboard' },
@@ -131,7 +166,7 @@ export default function BeautySalonInventoryApp() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#fde68a,_transparent_32%),linear-gradient(135deg,_#fff7ed,_#f5f5f4_45%,_#e7e5e4)] p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] text-neutral-950 md:p-8">
+    <main className={`theme-root theme-${themeMode} min-h-screen p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] text-neutral-950 md:p-8`}>
       <div className="mx-auto max-w-7xl">
         <header className="mb-6 overflow-hidden rounded-[2rem] bg-neutral-950 p-5 text-white shadow-xl md:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -140,7 +175,8 @@ export default function BeautySalonInventoryApp() {
               <h1 className="max-w-3xl text-3xl font-black leading-tight tracking-tight md:text-5xl">ระบบจัดการสต็อคร้านเสริมสวย</h1>
               <p className="mt-4 max-w-2xl text-sm text-neutral-300 md:text-base">Dashboard, บันทึกสต็อค และจัดการสินค้า รองรับ Desktop และ iPhone</p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <ThemeToggle themeMode={themeMode} onToggle={() => setThemeMode((mode) => (mode === 'day' ? 'night' : 'day'))} />
               <Button className="bg-white text-neutral-950 hover:bg-neutral-100" onClick={() => setShowExportMenu(true)}>⬇ Export ข้อมูล</Button>
               <label className="inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-2xl bg-white/10 px-4 py-3 text-sm font-black text-white transition hover:bg-white/20 active:scale-[0.98]">
                 ⬆ Import ข้อมูล
