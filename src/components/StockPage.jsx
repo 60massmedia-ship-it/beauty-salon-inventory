@@ -3,14 +3,15 @@ import { outboundReasonOptions } from '../data/constants.js';
 import { Button, Card, Field, SelectInput, TextArea, TextInput } from './ui.jsx';
 import { createCostRecord, createId, createProduct, findDuplicateProduct, formatMoney, nowIso, toSafeNumber } from '../lib/inventory.js';
 
-export default function StockPage({ products, setProducts, setTransactions, setCostHistory }) {
+export default function StockPage({ products, setProducts, transactions, setTransactions, setCostHistory }) {
   return (
     <div className="space-y-8">
       <section className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
         <ProductReceiveForm products={products} setProducts={setProducts} setTransactions={setTransactions} setCostHistory={setCostHistory} />
         <IssueStockForm products={products} setProducts={setProducts} setTransactions={setTransactions} />
       </section>
-      <TransactionHistory transactions={[]} />
+      <StockAuditPanel products={products} setProducts={setProducts} setTransactions={setTransactions} />
+      <TransactionHistory transactions={transactions} />
     </div>
   );
 }
@@ -138,6 +139,50 @@ function IssueStockForm({ products, setProducts, setTransactions }) {
   );
 }
 
+function StockAuditPanel({ products, setProducts, setTransactions }) {
+  const [productId, setProductId] = useState(products[0]?.id || '');
+  const [countedStock, setCountedStock] = useState('');
+  const [checkerName, setCheckerName] = useState('');
+  const [auditReason, setAuditReason] = useState('ตรวจนับสต็อคประจำเดือน');
+  const [note, setNote] = useState('');
+  const selected = products.find((product) => product.id === productId);
+  const counted = countedStock === '' ? null : Math.max(0, toSafeNumber(countedStock));
+  const diff = selected && counted !== null ? counted - toSafeNumber(selected.stock) : null;
+
+  useEffect(() => {
+    if (!productId && products[0]) setProductId(products[0].id);
+  }, [productId, products]);
+
+  function submit(event) {
+    event.preventDefault();
+    if (!selected) return window.alert('กรุณาเลือกสินค้า');
+    if (countedStock === '') return window.alert('กรุณากรอกจำนวนที่นับจริง');
+    const oldStock = toSafeNumber(selected.stock);
+    const nextStock = Math.max(0, toSafeNumber(countedStock));
+    setProducts((prev) => prev.map((item) => item.id === selected.id ? { ...item, stock: nextStock, updatedAt: nowIso() } : item));
+    const detail = [auditReason, `จำนวนในระบบ: ${oldStock}`, `นับจริง: ${nextStock}`, checkerName ? `ผู้ตรวจนับ: ${checkerName}` : '', note ? `หมายเหตุ: ${note}` : ''].filter(Boolean).join(' | ');
+    setTransactions((prev) => [{ id: createId(), productId: selected.id, productName: selected.name, type: 'adjust', quantity: Math.abs(nextStock - oldStock), reason: detail, createdAt: nowIso() }, ...prev]);
+    setCountedStock('');
+    setCheckerName('');
+    setNote('');
+  }
+
+  return (
+    <Card className="p-4 md:p-6">
+      <div className="mb-5"><h2 className="text-xl font-black text-neutral-950">🔍 ตรวจนับสต็อคจริง</h2><p className="text-sm text-neutral-500">ใช้เมื่อตรวจนับหน้าร้าน แล้วต้องการปรับจำนวนในระบบให้ตรงกับของจริง</p></div>
+      <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
+        <Field label="เลือกสินค้า" className="md:col-span-2"><SelectInput value={productId} onChange={(e) => setProductId(e.target.value)}>{products.map((item) => <option key={item.id} value={item.id}>{item.name} — ในระบบ {item.stock} {item.unit}</option>)}</SelectInput></Field>
+        {selected ? <div className="md:col-span-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600"><b className="text-neutral-950">{selected.name}</b><div className="mt-1 grid gap-1 sm:grid-cols-3"><div>จำนวนในระบบ: {selected.stock} {selected.unit}</div><div>นับจริง: {counted === null ? '-' : `${counted} ${selected.unit}`}</div><div className={diff === null ? 'text-neutral-500' : diff < 0 ? 'font-black text-red-600' : diff > 0 ? 'font-black text-emerald-600' : 'font-black text-neutral-600'}>ส่วนต่าง: {diff === null ? '-' : `${diff > 0 ? '+' : ''}${diff}`}</div></div></div> : null}
+        <Field label="จำนวนที่นับจริง"><TextInput type="number" min="0" value={countedStock} onChange={(e) => setCountedStock(e.target.value)} /></Field>
+        <Field label="เหตุผล"><SelectInput value={auditReason} onChange={(e) => setAuditReason(e.target.value)}><option>ตรวจนับสต็อคประจำเดือน</option><option>ตรวจนับหลังปิดร้าน</option><option>ปรับยอดจากของเสียหาย</option><option>ปรับยอดจากของหาย</option><option>อื่น ๆ</option></SelectInput></Field>
+        <Field label="ผู้ตรวจนับ"><TextInput value={checkerName} onChange={(e) => setCheckerName(e.target.value)} /></Field>
+        <Field label="หมายเหตุ"><TextInput value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+        <Button type="submit" className="bg-neutral-950 py-4 text-white md:col-span-2">บันทึกผลตรวจนับ</Button>
+      </form>
+    </Card>
+  );
+}
+
 function TransactionHistory({ transactions }) {
-  return <Card className="p-4 md:p-6"><h2 className="text-xl font-black text-neutral-950">🕘 ประวัติการเคลื่อนไหว</h2><div className="mt-5 space-y-3">{transactions.slice(0, 12).map((item) => <div key={item.id} className="rounded-2xl border border-neutral-100 bg-white p-4"><div className="flex items-center justify-between"><b>{item.productName}</b>{item.quantity > 0 ? <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-black">{item.type === 'out' ? '-' : '+'}{item.quantity}</span> : null}</div><p className="mt-1 text-sm text-neutral-500">{item.reason}</p></div>)}</div></Card>;
+  return <Card className="p-4 md:p-6"><h2 className="text-xl font-black text-neutral-950">🕘 ประวัติการเคลื่อนไหว</h2><div className="mt-5 space-y-3">{transactions.slice(0, 12).map((item) => <div key={item.id} className="rounded-2xl border border-neutral-100 bg-white p-4"><div className="flex items-center justify-between"><b>{item.productName}</b>{item.quantity > 0 ? <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-black">{item.type === 'out' ? '-' : '+'}{item.quantity}</span> : null}</div><p className="mt-1 text-sm text-neutral-500">{item.reason}</p></div>)}{transactions.length === 0 ? <div className="rounded-2xl bg-white p-8 text-center text-neutral-500">ยังไม่มีประวัติรายการ</div> : null}</div></Card>;
 }
