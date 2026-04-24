@@ -22,7 +22,6 @@ export default function StockPage({ products, setProducts, transactions, setTran
         <ProductReceiveForm products={products} setProducts={setProducts} setTransactions={setTransactions} setCostHistory={setCostHistory} />
         <IssueStockForm products={products} setProducts={setProducts} setTransactions={setTransactions} />
       </section>
-      <StockAuditPanel products={products} setProducts={setProducts} setTransactions={setTransactions} />
       <TransactionHistory transactions={transactions} />
     </div>
   );
@@ -166,55 +165,6 @@ function IssueStockForm({ products, setProducts, setTransactions }) {
         <Field label="ผู้เบิก / ผู้ทำรายการ"><TextInput value={operatorName} onChange={(e) => { setOperatorName(e.target.value); setSuccessMessage(''); }} /></Field>
         <Field label="หมายเหตุเพิ่มเติม"><TextInput value={note} onChange={(e) => { setNote(e.target.value); setSuccessMessage(''); }} /></Field>
         <Button type="submit" className="w-full bg-neutral-950 text-white">บันทึกการเบิกสินค้า</Button>
-      </form>
-    </Card>
-  );
-}
-
-function StockAuditPanel({ products, setProducts, setTransactions }) {
-  const [productId, setProductId] = useState(products[0]?.id || '');
-  const [countedStock, setCountedStock] = useState('');
-  const [checkerName, setCheckerName] = useState('');
-  const [auditReason, setAuditReason] = useState('ตรวจนับสต็อคประจำเดือน');
-  const [note, setNote] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const selected = products.find((product) => product.id === productId);
-  const counted = countedStock === '' ? null : Math.max(0, toSafeNumber(countedStock));
-  const diff = selected && counted !== null ? counted - toSafeNumber(selected.stock) : null;
-
-  useEffect(() => {
-    if (!productId && products[0]) setProductId(products[0].id);
-    if (productId && !products.some((product) => product.id === productId)) setProductId(products[0]?.id || '');
-  }, [productId, products]);
-
-  function submit(event) {
-    event.preventDefault();
-    setSuccessMessage('');
-    if (!selected) return window.alert('กรุณาเลือกสินค้า');
-    if (countedStock === '') return window.alert('กรุณากรอกจำนวนที่นับจริง');
-    const oldStock = toSafeNumber(selected.stock);
-    const nextStock = Math.max(0, toSafeNumber(countedStock));
-    setProducts((prev) => prev.map((item) => item.id === selected.id ? { ...item, stock: nextStock, updatedAt: nowIso() } : item));
-    const detail = [auditReason, `จำนวนในระบบ: ${oldStock}`, `นับจริง: ${nextStock}`, checkerName ? `ผู้ตรวจนับ: ${checkerName}` : '', note ? `หมายเหตุ: ${note}` : ''].filter(Boolean).join(' | ');
-    setTransactions((prev) => [{ id: createId(), productId: selected.id, productName: selected.name, type: 'adjust', quantity: Math.abs(nextStock - oldStock), reason: detail, createdAt: nowIso() }, ...prev]);
-    setSuccessMessage(`บันทึกผลตรวจนับ ${selected.name} จาก ${oldStock} เป็น ${nextStock} ${selected.unit} เรียบร้อยแล้ว`);
-    setCountedStock('');
-    setCheckerName('');
-    setNote('');
-  }
-
-  return (
-    <Card className="p-4 md:p-6">
-      <div className="mb-5"><h2 className="text-xl font-black text-neutral-950">🔍 ตรวจนับสต็อคจริง</h2><p className="text-sm text-neutral-500">ใช้เมื่อตรวจนับหน้าร้าน แล้วต้องการปรับจำนวนในระบบให้ตรงกับของจริง</p></div>
-      {successMessage ? <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-black text-emerald-700">✅ {successMessage}</div> : null}
-      <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-        <Field label="เลือกสินค้า" className="md:col-span-2"><SelectInput value={productId} onChange={(e) => { setProductId(e.target.value); setSuccessMessage(''); }}>{products.map((item) => <option key={item.id} value={item.id}>{item.name} — ในระบบ {item.stock} {item.unit}</option>)}</SelectInput></Field>
-        {selected ? <div className="md:col-span-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600"><b className="text-neutral-950">{selected.name}</b><div className="mt-1 grid gap-1 sm:grid-cols-3"><div>จำนวนในระบบ: {selected.stock} {selected.unit}</div><div>นับจริง: {counted === null ? '-' : `${counted} ${selected.unit}`}</div><div className={diff === null ? 'text-neutral-500' : diff < 0 ? 'font-black text-red-600' : diff > 0 ? 'font-black text-emerald-600' : 'font-black text-neutral-600'}>ส่วนต่าง: {diff === null ? '-' : `${diff > 0 ? '+' : ''}${diff}`}</div></div></div> : null}
-        <Field label="จำนวนที่นับจริง"><TextInput type="number" min="0" value={countedStock} onChange={(e) => { setCountedStock(e.target.value); setSuccessMessage(''); }} /></Field>
-        <Field label="เหตุผล"><SelectInput value={auditReason} onChange={(e) => { setAuditReason(e.target.value); setSuccessMessage(''); }}><option>ตรวจนับสต็อคประจำเดือน</option><option>ตรวจนับหลังปิดร้าน</option><option>ปรับยอดจากของเสียหาย</option><option>ปรับยอดจากของหาย</option><option>อื่น ๆ</option></SelectInput></Field>
-        <Field label="ผู้ตรวจนับ"><TextInput value={checkerName} onChange={(e) => { setCheckerName(e.target.value); setSuccessMessage(''); }} /></Field>
-        <Field label="หมายเหตุ"><TextInput value={note} onChange={(e) => { setNote(e.target.value); setSuccessMessage(''); }} /></Field>
-        <Button type="submit" className="bg-neutral-950 py-4 text-white md:col-span-2">บันทึกผลตรวจนับ</Button>
       </form>
     </Card>
   );
