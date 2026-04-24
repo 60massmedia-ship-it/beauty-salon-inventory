@@ -17,6 +17,8 @@ const thaiMonths = [
   'ธันวาคม',
 ];
 
+const chartColors = ['#ec4899', '#8b5cf6', '#f59e0b', '#3b82f6', '#10b981', '#94a3b8'];
+
 function StatCard({ icon, title, value, subtitle }) {
   return (
     <Card className="p-5">
@@ -137,6 +139,94 @@ function buildMonthlyUsageReport({ transactions, products, costHistory, selected
   };
 }
 
+function buildCategoryChartData(categoryRows) {
+  const sorted = [...categoryRows].sort((a, b) => Number(b.estimatedCost || 0) - Number(a.estimatedCost || 0));
+  const top = sorted.slice(0, 5).map((item, index) => ({
+    ...item,
+    color: chartColors[index % chartColors.length],
+  }));
+
+  const others = sorted.slice(5).reduce(
+    (acc, item) => {
+      acc.quantity += Number(item.quantity || 0);
+      acc.estimatedCost += Number(item.estimatedCost || 0);
+      acc.productCount += Number(item.productCount || 0);
+      return acc;
+    },
+    { category: 'อื่น ๆ', quantity: 0, estimatedCost: 0, productCount: 0 }
+  );
+
+  if (others.estimatedCost > 0) {
+    top.push({
+      ...others,
+      color: chartColors[5],
+    });
+  }
+
+  const total = top.reduce((sum, item) => sum + Number(item.estimatedCost || 0), 0);
+  return top.map((item) => ({
+    ...item,
+    percent: total > 0 ? (Number(item.estimatedCost || 0) / total) * 100 : 0,
+  }));
+}
+
+function DonutChart({ data, total }) {
+  const size = 220;
+  const strokeWidth = 26;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  if (!data.length || total <= 0) {
+    return (
+      <div className="relative flex items-center justify-center">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#f3f4f6" strokeWidth={strokeWidth} />
+        </svg>
+        <div className="absolute text-center">
+          <p className="text-sm font-black text-neutral-500">ยังไม่มีข้อมูล</p>
+          <p className="mt-1 text-xs text-neutral-400">ไม่มีการเบิกในเดือนนี้</p>
+        </div>
+      </div>
+    );
+  }
+
+  let accumulated = 0;
+
+  return (
+    <div className="relative flex items-center justify-center">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#f3f4f6" strokeWidth={strokeWidth} />
+        {data.map((item, index) => {
+          const fraction = item.percent / 100;
+          const dash = fraction * circumference;
+          const gap = circumference - dash;
+          const dashOffset = -accumulated * circumference;
+          accumulated += fraction;
+          return (
+            <circle
+              key={`${item.category}-${index}`}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={item.color}
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${dash} ${gap}`}
+              strokeDashoffset={dashOffset}
+              strokeLinecap="butt"
+            />
+          );
+        })}
+      </svg>
+      <div className="absolute text-center">
+        <p className="text-xs font-black text-neutral-500">มูลค่ารวม</p>
+        <p className="mt-1 text-xl font-black text-neutral-950">{formatMoney(total)}</p>
+        <p className="mt-1 text-xs text-neutral-400">{data.length} หมวดหมู่</p>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard({ products, transactions, costHistory }) {
   const currentDate = React.useMemo(() => new Date(), []);
   const yearOptions = React.useMemo(() => getAvailableYearOptions(transactions), [transactions]);
@@ -161,6 +251,7 @@ export default function Dashboard({ products, transactions, costHistory }) {
   }, [products, costHistory]);
 
   const monthlyReport = React.useMemo(() => buildMonthlyUsageReport({ transactions, products, costHistory, selectedMonth }), [transactions, products, costHistory, selectedMonth]);
+  const monthlyCategoryChartData = React.useMemo(() => buildCategoryChartData(monthlyReport.categoryRows), [monthlyReport.categoryRows]);
   const reorderSuggestions = React.useMemo(() => getReorderSuggestions(products, costHistory), [products, costHistory]);
 
   const productsWithCostStats = products.map((product) => {
@@ -179,13 +270,7 @@ export default function Dashboard({ products, transactions, costHistory }) {
     const key = product.category || 'อื่น ๆ';
     const unitCost = getEstimatedUnitCost(product, costHistory);
     if (!acc[key]) {
-      acc[key] = {
-        category: key,
-        productCount: 0,
-        totalStock: 0,
-        estimatedValue: 0,
-        lowStockCount: 0,
-      };
+      acc[key] = { category: key, productCount: 0, totalStock: 0, estimatedValue: 0, lowStockCount: 0 };
     }
     acc[key].productCount += 1;
     acc[key].totalStock += Number(product.stock || 0);
@@ -261,18 +346,31 @@ export default function Dashboard({ products, transactions, costHistory }) {
           <div className="space-y-4">
             <div>
               <h3 className="text-base font-black text-neutral-950">สรุปตามหมวดหมู่ของเดือนที่เลือก</h3>
-              <div className="mt-3 space-y-3">
-                {monthlyReport.categoryRows.length > 0 ? monthlyReport.categoryRows.map((item) => (
-                  <div key={item.category} className="rounded-2xl border border-neutral-100 bg-white p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-black text-neutral-950">{item.category}</p>
-                        <p className="text-xs text-neutral-400">{item.productCount} รายการ / {formatNumber(item.quantity)} ชิ้น</p>
-                      </div>
-                      <p className="font-black text-neutral-950">{formatMoney(item.estimatedCost)}</p>
-                    </div>
+              <div className="mt-3 rounded-3xl border border-neutral-200 bg-white p-4 md:p-5">
+                <div className="grid gap-6 lg:items-center">
+                  <div className="flex justify-center">
+                    <DonutChart data={monthlyCategoryChartData} total={monthlyReport.totalCost} />
                   </div>
-                )) : <div className="rounded-2xl bg-white p-6 text-center text-neutral-500">ยังไม่มีข้อมูลหมวดหมู่</div>}
+                  <div className="space-y-3">
+                    {monthlyCategoryChartData.length > 0 ? monthlyCategoryChartData.map((item, index) => (
+                      <div key={`${item.category}-${index}`} className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-3">
+                              <span className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                              <p className="truncate font-black text-neutral-950">{item.category}</p>
+                            </div>
+                            <p className="mt-1 text-xs text-neutral-400">{formatNumber(item.productCount)} รายการ / {formatNumber(item.quantity)} ชิ้น</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="font-black text-neutral-950">{formatMoney(item.estimatedCost)}</p>
+                            <p className="text-xs font-black text-neutral-500">{item.percent.toFixed(1)}%</p>
+                          </div>
+                        </div>
+                      </div>
+                    )) : <div className="rounded-2xl bg-neutral-50 p-6 text-center text-neutral-500">ยังไม่มีข้อมูลหมวดหมู่</div>}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -282,10 +380,7 @@ export default function Dashboard({ products, transactions, costHistory }) {
                 {monthlyReport.dailyRows.slice(0, 8).map((item) => (
                   <div key={item.dateKey} className="rounded-2xl border border-neutral-100 bg-white p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-black text-neutral-950">{new Date(item.dateKey).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</p>
-                        <p className="text-xs text-neutral-400">{formatNumber(item.entries)} รายการ / {formatNumber(item.quantity)} ชิ้น</p>
-                      </div>
+                      <div><p className="font-black text-neutral-950">{new Date(item.dateKey).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</p><p className="text-xs text-neutral-400">{formatNumber(item.entries)} รายการ / {formatNumber(item.quantity)} ชิ้น</p></div>
                       <p className="font-black text-neutral-950">{formatMoney(item.estimatedCost)}</p>
                     </div>
                   </div>
@@ -300,23 +395,14 @@ export default function Dashboard({ products, transactions, costHistory }) {
       {reorderSuggestions.length > 0 ? (
         <section className="rounded-3xl border border-red-200 bg-red-50 p-5">
           <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="text-xl font-black text-red-700">🛒 ของที่ควรซื้อเพิ่มวันนี้</h2>
-              <p className="text-sm text-red-600">คำนวณจากจำนวนคงเหลือเทียบกับค่าแจ้งเตือนขั้นต่ำ และประเมินงบจากต้นทุนเฉลี่ย</p>
-            </div>
+            <div><h2 className="text-xl font-black text-red-700">🛒 ของที่ควรซื้อเพิ่มวันนี้</h2><p className="text-sm text-red-600">คำนวณจากจำนวนคงเหลือเทียบกับค่าแจ้งเตือนขั้นต่ำ และประเมินงบจากต้นทุนเฉลี่ย</p></div>
             <div className="w-fit rounded-full bg-white px-4 py-2 text-sm font-black text-red-700 shadow-sm">รวมประมาณ {formatMoney(reorderSuggestions.reduce((sum, item) => sum + item.estimatedCost, 0))}</div>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {reorderSuggestions.map((product) => (
               <div key={product.id} className="rounded-2xl bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><p className="truncate font-black text-neutral-950">{product.name}</p><p className="mt-1 text-xs text-neutral-400">ซัพพลายเออร์ล่าสุด: {product.latestSupplier}</p></div>
-                  <span className="shrink-0 rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-700">เหลือ {product.stock}</span>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-400">แนะนำซื้อ</p><p className="font-black text-neutral-950">{product.suggestQty} {product.unit}</p></div>
-                  <div className="rounded-xl bg-amber-50 p-3 text-amber-800"><p className="text-xs">งบประมาณ</p><p className="font-black">{formatMoney(product.estimatedCost)}</p></div>
-                </div>
+                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate font-black text-neutral-950">{product.name}</p><p className="mt-1 text-xs text-neutral-400">ซัพพลายเออร์ล่าสุด: {product.latestSupplier}</p></div><span className="shrink-0 rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-700">เหลือ {product.stock}</span></div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm"><div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-400">แนะนำซื้อ</p><p className="font-black text-neutral-950">{product.suggestQty} {product.unit}</p></div><div className="rounded-xl bg-amber-50 p-3 text-amber-800"><p className="text-xs">งบประมาณ</p><p className="font-black">{formatMoney(product.estimatedCost)}</p></div></div>
               </div>
             ))}
           </div>
@@ -332,10 +418,7 @@ export default function Dashboard({ products, transactions, costHistory }) {
           <div className="mt-5 space-y-3">
             {categorySummary.map((item) => (
               <div key={item.category} className="rounded-2xl border border-neutral-100 bg-white p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div><p className="font-black text-neutral-950">{item.category}</p><p className="text-xs text-neutral-400">{item.productCount} รายการ / รวม {formatNumber(item.totalStock)} ชิ้น</p></div>
-                  <div className="text-right"><p className="font-black text-neutral-950">{formatMoney(item.estimatedValue)}</p><p className={item.lowStockCount > 0 ? 'text-xs font-black text-red-600' : 'text-xs text-neutral-400'}>ใกล้หมด {item.lowStockCount} รายการ</p></div>
-                </div>
+                <div className="flex items-start justify-between gap-3"><div><p className="font-black text-neutral-950">{item.category}</p><p className="text-xs text-neutral-400">{item.productCount} รายการ / รวม {formatNumber(item.totalStock)} ชิ้น</p></div><div className="text-right"><p className="font-black text-neutral-950">{formatMoney(item.estimatedValue)}</p><p className={item.lowStockCount > 0 ? 'text-xs font-black text-red-600' : 'text-xs text-neutral-400'}>ใกล้หมด {item.lowStockCount} รายการ</p></div></div>
               </div>
             ))}
           </div>
@@ -345,10 +428,7 @@ export default function Dashboard({ products, transactions, costHistory }) {
           <h2 className="text-xl font-black text-neutral-950">รายการเคลื่อนไหวล่าสุด</h2>
           <div className="mt-5 space-y-3">
             {recentTransactions.length > 0 ? recentTransactions.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-neutral-100 bg-white p-4">
-                <div className="flex items-center justify-between gap-3"><p className="font-black text-neutral-950">{item.productName}</p>{Number(item.quantity) > 0 ? <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-black">{item.type === 'out' ? '-' : '+'}{item.quantity}</span> : null}</div>
-                <p className="mt-1 text-sm text-neutral-500">{item.reason}</p>
-              </div>
+              <div key={item.id} className="rounded-2xl border border-neutral-100 bg-white p-4"><div className="flex items-center justify-between gap-3"><p className="font-black text-neutral-950">{item.productName}</p>{Number(item.quantity) > 0 ? <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-black">{item.type === 'out' ? '-' : '+'}{item.quantity}</span> : null}</div><p className="mt-1 text-sm text-neutral-500">{item.reason}</p></div>
             )) : <div className="rounded-2xl bg-white p-8 text-center text-neutral-500">ยังไม่มีประวัติรายการ</div>}
           </div>
         </Card>
