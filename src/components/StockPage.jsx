@@ -28,7 +28,7 @@ export default function StockPage({ products, setProducts, transactions, setTran
 }
 
 function ProductReceiveForm({ products, setProducts, setTransactions, setCostHistory }) {
-  const emptyForm = { name: '', sku: '', category: categoryOptions[0], productType: productTypeOptions[0], purchaseQuantity: 0, minStock: 5, unit: unitOptions[0], cost: 0, supplier: '', invoiceNo: '', note: '' };
+  const emptyForm = { name: '', sku: '', category: categoryOptions[0], productType: productTypeOptions[0], purchaseQuantity: 0, minStock: 5, unit: unitOptions[0], cost: 0, supplier: '', note: '' };
   const [mode, setMode] = useState('new');
   const [existingId, setExistingId] = useState(products[0]?.id || '');
   const [form, setForm] = useState(emptyForm);
@@ -54,7 +54,7 @@ function ProductReceiveForm({ products, setProducts, setTransactions, setCostHis
       supplier: payload.supplier || item.supplier,
       updatedAt: nowIso(),
     } : item));
-    setCostHistory((prev) => [createCostRecord({ productId: selected.id, productName: selected.name, quantity: payload.qty, unitCost: payload.cost, supplier: payload.supplier, invoiceNo: payload.invoiceNo, note: payload.note }), ...prev]);
+    setCostHistory((prev) => [createCostRecord({ productId: selected.id, productName: selected.name, quantity: payload.qty, unitCost: payload.cost, supplier: payload.supplier, note: payload.note }), ...prev]);
     setTransactions((prev) => [{ id: createId(), productId: selected.id, productName: selected.name, type: 'in', quantity: payload.qty, reason: `รับเข้าสินค้าเดิม | ต้นทุน ${formatMoney(payload.cost)}`, createdAt: nowIso() }, ...prev]);
     setSuccessMessage(`บันทึกรับเข้า ${selected.name} จำนวน ${payload.qty} ${selected.unit} เรียบร้อยแล้ว`);
     return true;
@@ -65,7 +65,7 @@ function ProductReceiveForm({ products, setProducts, setTransactions, setCostHis
     const duplicate = findDuplicateProduct(products, form);
     if (duplicate && !window.confirm(`พบสินค้าที่อาจซ้ำ: ${duplicate.product.name}\nต้องการเพิ่มเป็นสินค้าใหม่แยกต่างหากหรือไม่?`)) return false;
     setProducts((prev) => [product, ...prev]);
-    setCostHistory((prev) => [createCostRecord({ productId: product.id, productName: product.name, quantity: payload.qty, unitCost: payload.cost, supplier: form.supplier, invoiceNo: form.invoiceNo, note: form.note }), ...prev]);
+    setCostHistory((prev) => [createCostRecord({ productId: product.id, productName: product.name, quantity: payload.qty, unitCost: payload.cost, supplier: form.supplier, note: form.note }), ...prev]);
     setTransactions((prev) => [{ id: createId(), productId: product.id, productName: product.name, type: 'in', quantity: payload.qty, reason: `เพิ่มสินค้าใหม่พร้อมจำนวนซื้อเข้า ต้นทุน ${formatMoney(payload.cost)}`, createdAt: nowIso() }, ...prev]);
     setSuccessMessage(`เพิ่มสินค้าใหม่ ${product.name} และบันทึกรับเข้า ${payload.qty} ${product.unit} เรียบร้อยแล้ว`);
     return true;
@@ -77,7 +77,7 @@ function ProductReceiveForm({ products, setProducts, setTransactions, setCostHis
     const qty = Math.max(0, toSafeNumber(form.purchaseQuantity));
     const cost = Math.max(0, toSafeNumber(form.cost));
     if (qty <= 0) return window.alert('กรุณากรอกจำนวนซื้อเข้ามากกว่า 0');
-    const payload = { qty, cost, supplier: form.supplier, invoiceNo: form.invoiceNo, note: form.note };
+    const payload = { qty, cost, supplier: form.supplier, note: form.note };
     let saved = false;
     if (mode === 'existing') {
       if (!selected) return window.alert('กรุณาเลือกสินค้าเดิม');
@@ -113,7 +113,6 @@ function ProductReceiveForm({ products, setProducts, setTransactions, setCostHis
         <Field label="จำนวนซื้อเข้า"><TextInput type="number" min="0" value={form.purchaseQuantity} onChange={(e) => update('purchaseQuantity', e.target.value)} /></Field>
         <Field label="ต้นทุนต่อหน่วยรอบนี้"><TextInput type="number" min="0" value={form.cost} onChange={(e) => update('cost', e.target.value)} /></Field>
         <Field label="ซัพพลายเออร์"><TextInput value={form.supplier} onChange={(e) => update('supplier', e.target.value)} /></Field>
-        <Field label="เลขที่บิล / ใบเสร็จ"><TextInput value={form.invoiceNo} onChange={(e) => update('invoiceNo', e.target.value)} /></Field>
         <Field label="หมายเหตุ" className="md:col-span-2"><TextArea value={form.note} onChange={(e) => update('note', e.target.value)} /></Field>
         <Button type="submit" className="bg-neutral-950 py-4 text-white md:col-span-2">💾 บันทึกรับเข้า</Button>
       </form>
