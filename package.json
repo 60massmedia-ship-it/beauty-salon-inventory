@@ -1,6 +1,6 @@
 {
   "name": "beauty-salon-inventory",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,9 +15,8 @@
     "react-dom": "latest"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "latest",
-    "tailwindcss": "latest",
-    "postcss": "latest",
-    "autoprefixer": "latest"
+    "tailwindcss": "3.4.17",
+    "postcss": "8.4.49",
+    "autoprefixer": "10.4.20"
   }
 }
