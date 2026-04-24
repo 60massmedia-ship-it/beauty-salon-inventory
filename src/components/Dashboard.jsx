@@ -38,23 +38,34 @@ function getMonthKey(dateValue) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+function makeMonthKey(year, monthIndex) {
+  return `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+}
+
 function getMonthLabel(monthKey) {
   const [year, month] = String(monthKey).split('-').map(Number);
   if (!year || !month) return '-';
   return `${thaiMonths[month - 1]} ${year + 543}`;
 }
 
-function getAvailableMonthOptions(transactions) {
-  const current = new Date();
-  const currentKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
-  const keys = new Set([currentKey]);
+function getAvailableYearOptions(transactions) {
+  const currentYear = new Date().getFullYear();
+  const years = new Set([currentYear]);
   transactions.forEach((item) => {
     if (item.type === 'out') {
-      const key = getMonthKey(item.createdAt);
-      if (key) keys.add(key);
+      const date = new Date(item.createdAt);
+      if (!Number.isNaN(date.getTime())) years.add(date.getFullYear());
     }
   });
-  return Array.from(keys).sort((a, b) => b.localeCompare(a));
+  return Array.from(years).sort((a, b) => b - a);
+}
+
+function getMonthOptionsForYear(year) {
+  return thaiMonths.map((monthName, index) => ({
+    monthIndex: index,
+    monthName,
+    monthKey: makeMonthKey(year, index),
+  }));
 }
 
 function buildMonthlyUsageReport({ transactions, products, costHistory, selectedMonth }) {
@@ -127,14 +138,19 @@ function buildMonthlyUsageReport({ transactions, products, costHistory, selected
 }
 
 export default function Dashboard({ products, transactions, costHistory }) {
-  const monthOptions = React.useMemo(() => getAvailableMonthOptions(transactions), [transactions]);
-  const [selectedMonth, setSelectedMonth] = React.useState(monthOptions[0]);
+  const currentDate = React.useMemo(() => new Date(), []);
+  const yearOptions = React.useMemo(() => getAvailableYearOptions(transactions), [transactions]);
+  const [selectedYear, setSelectedYear] = React.useState(currentDate.getFullYear());
+  const [selectedMonthIndex, setSelectedMonthIndex] = React.useState(currentDate.getMonth());
 
   React.useEffect(() => {
-    if (!monthOptions.includes(selectedMonth)) {
-      setSelectedMonth(monthOptions[0]);
+    if (!yearOptions.includes(Number(selectedYear))) {
+      setSelectedYear(yearOptions[0]);
     }
-  }, [monthOptions, selectedMonth]);
+  }, [yearOptions, selectedYear]);
+
+  const monthOptions = React.useMemo(() => getMonthOptionsForYear(Number(selectedYear)), [selectedYear]);
+  const selectedMonth = makeMonthKey(Number(selectedYear), Number(selectedMonthIndex));
 
   const stats = React.useMemo(() => {
     const totalProducts = products.length;
@@ -191,13 +207,21 @@ export default function Dashboard({ products, transactions, costHistory }) {
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="text-xl font-black text-neutral-950">📅 สรุปการเบิกสินค้ารายเดือน</h2>
-            <p className="mt-1 text-sm text-neutral-500">เลือกเดือน/ปี เพื่อดูว่าเดือนนั้นเบิกสินค้าอะไรไปบ้าง จำนวนเท่าไร และคิดเป็นมูลค่าประมาณเท่าไร</p>
+            <p className="mt-1 text-sm text-neutral-500">เลือกเดือนและปีได้ครบ 12 เดือน แม้เดือนนั้นยังไม่มีรายการเบิก ระบบจะแสดงว่าไม่มีข้อมูล</p>
           </div>
-          <div className="w-full lg:w-64">
-            <p className="mb-1 text-sm font-black text-neutral-700">เลือกเดือน / ปี</p>
-            <SelectInput value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>
-              {monthOptions.map((monthKey) => <option key={monthKey} value={monthKey}>{getMonthLabel(monthKey)}</option>)}
-            </SelectInput>
+          <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-[28rem]">
+            <div>
+              <p className="mb-1 text-sm font-black text-neutral-700">เดือน</p>
+              <SelectInput value={selectedMonthIndex} onChange={(event) => setSelectedMonthIndex(Number(event.target.value))}>
+                {monthOptions.map((item) => <option key={item.monthKey} value={item.monthIndex}>{item.monthName}</option>)}
+              </SelectInput>
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-black text-neutral-700">ปี</p>
+              <SelectInput value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>
+                {yearOptions.map((year) => <option key={year} value={year}>{year + 543}</option>)}
+              </SelectInput>
+            </div>
           </div>
         </div>
 
