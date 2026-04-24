@@ -53,6 +53,15 @@ function ThemeToggle({ themeMode, onToggle }) {
   );
 }
 
+function HeaderMetric({ label, value }) {
+  return (
+    <div className="rounded-2xl bg-white/10 px-4 py-3 text-white ring-1 ring-white/10 backdrop-blur">
+      <p className="text-[11px] font-black uppercase tracking-[0.08em] text-white/65">{label}</p>
+      <p className="mt-1 text-lg font-black tracking-[-0.02em]">{value}</p>
+    </div>
+  );
+}
+
 export default function BeautySalonInventoryApp() {
   const [products, setProducts] = useState(() => normalizeProducts(readStorage(STORAGE_KEYS.products, sampleProducts)));
   const [transactions, setTransactions] = useState(() => readStorage(STORAGE_KEYS.transactions, []));
@@ -78,10 +87,13 @@ export default function BeautySalonInventoryApp() {
   }, [themeMode]);
 
   const tabs = [
-    { id: 'dashboard', label: '📊 Dashboard' },
-    { id: 'stock', label: '🧾 สต็อค' },
-    { id: 'products', label: '📦 สินค้า' },
+    { id: 'dashboard', label: 'Dashboard', icon: '📊', helper: 'ภาพรวมร้าน' },
+    { id: 'stock', label: 'บันทึกสต็อค', icon: '🧾', helper: 'รับเข้า / เบิกออก' },
+    { id: 'products', label: 'จัดการสินค้า', icon: '📦', helper: 'สินค้าและต้นทุน' },
   ];
+
+  const lowStockCount = products.filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0)).length;
+  const todayLabel = new Date().toLocaleDateString('th-TH', { dateStyle: 'medium' });
 
   const exportData = () => {
     exportJson(`beauty-salon-inventory-${new Date().toISOString().slice(0, 10)}.json`, {
@@ -168,18 +180,26 @@ export default function BeautySalonInventoryApp() {
   return (
     <main className={`theme-root theme-${themeMode} min-h-screen p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] text-neutral-950 md:p-8`}>
       <div className="mx-auto max-w-7xl">
-        <header className="mb-6 overflow-hidden rounded-[2rem] bg-neutral-950 p-5 text-white shadow-xl md:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs text-neutral-200 md:text-sm">✨ Beauty Salon Inventory System</div>
-              <h1 className="max-w-3xl text-3xl font-black leading-tight tracking-tight md:text-5xl">ระบบจัดการสต็อคร้านเสริมสวย</h1>
-              <p className="mt-4 max-w-2xl text-sm text-neutral-300 md:text-base">Dashboard, บันทึกสต็อค และจัดการสินค้า รองรับ Desktop และ iPhone</p>
+        <header className="relative mb-6 overflow-hidden rounded-[2rem] bg-neutral-950 p-5 text-white shadow-xl md:p-8">
+          <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
+          <div className="pointer-events-none absolute bottom-0 left-10 h-32 w-32 rounded-full bg-pink-200/20 blur-xl" />
+
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-black text-white/80 ring-1 ring-white/10 md:text-sm">✨ Premium Beauty Salon Inventory</div>
+              <h1 className="text-3xl font-black leading-tight tracking-[-0.04em] md:text-5xl">ระบบจัดการสต็อคร้านเสริมสวย</h1>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/75 md:text-base">ออกแบบสำหรับเจ้าของร้านและพนักงาน ใช้งานง่ายบนมือถือ ดูต้นทุน เบิกสินค้า รับเข้า และเช็คของที่ควรซื้อเพิ่มได้เร็วขึ้น</p>
+              <div className="mt-5 grid max-w-2xl gap-3 sm:grid-cols-3">
+                <HeaderMetric label="วันนี้" value={todayLabel} />
+                <HeaderMetric label="สินค้าในระบบ" value={`${products.length} รายการ`} />
+                <HeaderMetric label="ใกล้หมด" value={`${lowStockCount} รายการ`} />
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
               <ThemeToggle themeMode={themeMode} onToggle={() => setThemeMode((mode) => (mode === 'day' ? 'night' : 'day'))} />
-              <Button className="bg-white text-neutral-950 hover:bg-neutral-100" onClick={() => setShowExportMenu(true)}>⬇ Export ข้อมูล</Button>
-              <label className="inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-2xl bg-white/10 px-4 py-3 text-sm font-black text-white transition hover:bg-white/20 active:scale-[0.98]">
-                ⬆ Import ข้อมูล
+              <Button className="bg-white text-neutral-950 hover:bg-neutral-100" onClick={() => setShowExportMenu(true)}>⬇ Export</Button>
+              <label className="premium-button inline-flex min-h-[48px] cursor-pointer items-center justify-center rounded-[1.15rem] bg-white/10 px-5 py-3 text-sm font-black text-white ring-1 ring-white/15 transition hover:-translate-y-0.5 hover:bg-white/20 active:scale-[0.98]">
+                ⬆ Import
                 <input type="file" accept="application/json" onChange={importData} className="hidden" />
               </label>
             </div>
@@ -209,11 +229,14 @@ export default function BeautySalonInventoryApp() {
           </Modal>
         ) : null}
 
-        <nav className="sticky top-3 z-10 mb-8 hidden rounded-3xl border border-white/70 bg-white/80 p-2 shadow-sm backdrop-blur md:block">
+        <nav className="premium-card sticky top-3 z-10 mb-8 hidden rounded-[1.5rem] border p-2 backdrop-blur md:block">
           <div className="grid gap-2 md:grid-cols-3">
             {tabs.map((tab) => (
-              <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`rounded-2xl px-4 py-3 text-sm font-black transition ${activeTab === tab.id ? 'bg-neutral-950 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950'}`}>
-                {tab.label}
+              <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`rounded-[1.15rem] px-4 py-3 text-left transition ${activeTab === tab.id ? 'bg-neutral-950 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950'}`}>
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{tab.icon}</span>
+                  <span><span className="block text-sm font-black">{tab.label}</span><span className={`block text-[11px] ${activeTab === tab.id ? 'text-white/70' : 'text-neutral-400'}`}>{tab.helper}</span></span>
+                </div>
               </button>
             ))}
           </div>
@@ -223,11 +246,12 @@ export default function BeautySalonInventoryApp() {
         {activeTab === 'stock' ? <StockPage products={products} setProducts={setProducts} transactions={transactions} setTransactions={setTransactions} setCostHistory={setCostHistory} /> : null}
         {activeTab === 'products' ? <ProductPage products={products} setProducts={setProducts} setTransactions={setTransactions} costHistory={costHistory} setCostHistory={setCostHistory} /> : null}
 
-        <nav className="fixed inset-x-3 bottom-3 z-40 rounded-[1.7rem] border border-white/70 bg-white/90 p-2 shadow-2xl backdrop-blur md:hidden" style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
+        <nav className="premium-card fixed inset-x-3 bottom-3 z-40 rounded-[1.7rem] border p-2 shadow-2xl backdrop-blur md:hidden" style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
           <div className="grid grid-cols-3 gap-2">
             {tabs.map((tab) => (
               <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`rounded-2xl px-2 py-3 text-[11px] font-black transition ${activeTab === tab.id ? 'bg-neutral-950 text-white shadow-sm' : 'text-neutral-500 hover:bg-neutral-100'}`}>
-                {tab.label}
+                <span className="block text-lg leading-none">{tab.icon}</span>
+                <span className="mt-1 block">{tab.label}</span>
               </button>
             ))}
           </div>
