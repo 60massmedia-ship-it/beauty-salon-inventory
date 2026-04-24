@@ -121,21 +121,16 @@ function buildMonthlyUsageReport({ transactions, products, costHistory, selected
     return acc;
   }, {})).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 
-  const totalQuantity = productRows.reduce((sum, item) => sum + item.quantity, 0);
-  const totalCost = productRows.reduce((sum, item) => sum + item.estimatedCost, 0);
-  const topProduct = productRows[0] || null;
-  const topCategory = categoryRows[0] || null;
-
   return {
     outbound,
     productRows,
     categoryRows,
     dailyRows,
     totalEntries: outbound.length,
-    totalQuantity,
-    totalCost,
-    topProduct,
-    topCategory,
+    totalQuantity: productRows.reduce((sum, item) => sum + item.quantity, 0),
+    totalCost: productRows.reduce((sum, item) => sum + item.estimatedCost, 0),
+    topProduct: productRows[0] || null,
+    topCategory: categoryRows[0] || null,
   };
 }
 
@@ -157,10 +152,7 @@ function buildCategoryChartData(categoryRows) {
   );
 
   if (others.estimatedCost > 0) {
-    top.push({
-      ...others,
-      color: chartColors[5],
-    });
+    top.push({ ...others, color: chartColors[5] });
   }
 
   const total = top.reduce((sum, item) => sum + Number(item.estimatedCost || 0), 0);
@@ -170,7 +162,37 @@ function buildCategoryChartData(categoryRows) {
   }));
 }
 
-function DonutChart({ data, total }) {
+function buildStockCategoryChartData(categoryRows) {
+  const sorted = [...categoryRows].sort((a, b) => Number(b.estimatedValue || 0) - Number(a.estimatedValue || 0));
+  const top = sorted.slice(0, 5).map((item, index) => ({
+    ...item,
+    estimatedCost: Number(item.estimatedValue || 0),
+    color: chartColors[index % chartColors.length],
+  }));
+
+  const others = sorted.slice(5).reduce(
+    (acc, item) => {
+      acc.totalStock += Number(item.totalStock || 0);
+      acc.estimatedValue += Number(item.estimatedValue || 0);
+      acc.productCount += Number(item.productCount || 0);
+      acc.lowStockCount += Number(item.lowStockCount || 0);
+      return acc;
+    },
+    { category: 'อื่น ๆ', totalStock: 0, estimatedValue: 0, productCount: 0, lowStockCount: 0 }
+  );
+
+  if (others.estimatedValue > 0) {
+    top.push({ ...others, estimatedCost: Number(others.estimatedValue || 0), color: chartColors[5] });
+  }
+
+  const total = top.reduce((sum, item) => sum + Number(item.estimatedCost || 0), 0);
+  return top.map((item) => ({
+    ...item,
+    percent: total > 0 ? (Number(item.estimatedCost || 0) / total) * 100 : 0,
+  }));
+}
+
+function DonutChart({ data, total, emptyText = 'ยังไม่มีข้อมูล', emptySubtext = 'ไม่มีข้อมูลในช่วงนี้' }) {
   const size = 220;
   const strokeWidth = 26;
   const radius = (size - strokeWidth) / 2;
@@ -183,8 +205,8 @@ function DonutChart({ data, total }) {
           <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#f3f4f6" strokeWidth={strokeWidth} />
         </svg>
         <div className="absolute text-center">
-          <p className="text-sm font-black text-neutral-500">ยังไม่มีข้อมูล</p>
-          <p className="mt-1 text-xs text-neutral-400">ไม่มีการเบิกในเดือนนี้</p>
+          <p className="text-sm font-black text-neutral-500">{emptyText}</p>
+          <p className="mt-1 text-xs text-neutral-400">{emptySubtext}</p>
         </div>
       </div>
     );
@@ -279,6 +301,9 @@ export default function Dashboard({ products, transactions, costHistory }) {
     return acc;
   }, {})).sort((a, b) => b.estimatedValue - a.estimatedValue);
 
+  const stockCategoryChartData = React.useMemo(() => buildStockCategoryChartData(categorySummary), [categorySummary]);
+  const stockCategoryTotalValue = categorySummary.reduce((sum, item) => sum + Number(item.estimatedValue || 0), 0);
+
   return (
     <div className="space-y-8">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -349,7 +374,7 @@ export default function Dashboard({ products, transactions, costHistory }) {
               <div className="mt-3 rounded-3xl border border-neutral-200 bg-white p-4 md:p-5">
                 <div className="grid gap-6 lg:items-center">
                   <div className="flex justify-center">
-                    <DonutChart data={monthlyCategoryChartData} total={monthlyReport.totalCost} />
+                    <DonutChart data={monthlyCategoryChartData} total={monthlyReport.totalCost} emptySubtext="ไม่มีการเบิกในเดือนนี้" />
                   </div>
                   <div className="space-y-3">
                     {monthlyCategoryChartData.length > 0 ? monthlyCategoryChartData.map((item, index) => (
@@ -414,13 +439,33 @@ export default function Dashboard({ products, transactions, costHistory }) {
       <section className="grid gap-6 xl:grid-cols-2">
         <Card className="p-5 md:p-6">
           <h2 className="text-xl font-black text-neutral-950">สรุปตามหมวดหมู่ของสต็อคปัจจุบัน</h2>
-          <p className="mt-1 text-sm text-neutral-500">ดูจำนวนสินค้า มูลค่าสต็อค และรายการใกล้หมดแยกตามหมวด</p>
-          <div className="mt-5 space-y-3">
-            {categorySummary.map((item) => (
-              <div key={item.category} className="rounded-2xl border border-neutral-100 bg-white p-4">
-                <div className="flex items-start justify-between gap-3"><div><p className="font-black text-neutral-950">{item.category}</p><p className="text-xs text-neutral-400">{item.productCount} รายการ / รวม {formatNumber(item.totalStock)} ชิ้น</p></div><div className="text-right"><p className="font-black text-neutral-950">{formatMoney(item.estimatedValue)}</p><p className={item.lowStockCount > 0 ? 'text-xs font-black text-red-600' : 'text-xs text-neutral-400'}>ใกล้หมด {item.lowStockCount} รายการ</p></div></div>
+          <p className="mt-1 text-sm text-neutral-500">แสดงสัดส่วนตามมูลค่าสต็อค เพื่อดูว่าเงินจมอยู่ในหมวดไหนมากที่สุด</p>
+          <div className="mt-5 rounded-3xl border border-neutral-200 bg-white p-4 md:p-5">
+            <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+              <div className="flex justify-center">
+                <DonutChart data={stockCategoryChartData} total={stockCategoryTotalValue} emptySubtext="ยังไม่มีมูลค่าสต็อค" />
               </div>
-            ))}
+              <div className="space-y-3">
+                {stockCategoryChartData.length > 0 ? stockCategoryChartData.map((item, index) => (
+                  <div key={`${item.category}-${index}`} className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-3">
+                          <span className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                          <p className="truncate font-black text-neutral-950">{item.category}</p>
+                        </div>
+                        <p className="mt-1 text-xs text-neutral-400">{formatNumber(item.productCount)} รายการ / รวม {formatNumber(item.totalStock)} ชิ้น</p>
+                        <p className={item.lowStockCount > 0 ? 'mt-1 text-xs font-black text-red-600' : 'mt-1 text-xs text-neutral-400'}>ใกล้หมด {formatNumber(item.lowStockCount)} รายการ</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-black text-neutral-950">{formatMoney(item.estimatedCost)}</p>
+                        <p className="text-xs font-black text-neutral-500">{item.percent.toFixed(1)}%</p>
+                      </div>
+                    </div>
+                  </div>
+                )) : <div className="rounded-2xl bg-neutral-50 p-6 text-center text-neutral-500">ยังไม่มีข้อมูลหมวดหมู่</div>}
+              </div>
+            </div>
           </div>
         </Card>
 
