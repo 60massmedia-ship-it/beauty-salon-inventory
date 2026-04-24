@@ -182,9 +182,9 @@ function CostHistoryModal({ product, costHistory, onClose }) {
           <div className="rounded-2xl bg-amber-50 p-4 text-amber-800"><p className="text-xs">รวมซื้อเข้า</p><p className="text-xl font-black">{formatNumber(stats.totalQty)} {product.unit}</p></div>
         </div>
         <div className="overflow-auto rounded-2xl border border-neutral-200">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="bg-neutral-100 text-neutral-600"><tr><th className="px-4 py-3">วันที่</th><th className="px-4 py-3">จำนวนเข้า</th><th className="px-4 py-3">ต้นทุน/หน่วย</th><th className="px-4 py-3">ซัพพลายเออร์</th><th className="px-4 py-3">เลขที่บิล</th><th className="px-4 py-3">หมายเหตุ</th></tr></thead>
-            <tbody>{records.map((record) => <tr key={record.id} className="border-t border-neutral-100"><td className="px-4 py-3">{new Date(record.createdAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</td><td className="px-4 py-3">{record.quantity} {product.unit}</td><td className="px-4 py-3 font-black text-neutral-950">{formatMoney(record.unitCost)}</td><td className="px-4 py-3">{record.supplier || '-'}</td><td className="px-4 py-3">{record.invoiceNo || '-'}</td><td className="px-4 py-3">{record.note || '-'}</td></tr>)}</tbody>
+          <table className="w-full min-w-[680px] text-left text-sm">
+            <thead className="bg-neutral-100 text-neutral-600"><tr><th className="px-4 py-3">วันที่</th><th className="px-4 py-3">จำนวนเข้า</th><th className="px-4 py-3">ต้นทุน/หน่วย</th><th className="px-4 py-3">ซัพพลายเออร์</th><th className="px-4 py-3">หมายเหตุ</th></tr></thead>
+            <tbody>{records.map((record) => <tr key={record.id} className="border-t border-neutral-100"><td className="px-4 py-3">{new Date(record.createdAt).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</td><td className="px-4 py-3">{record.quantity} {product.unit}</td><td className="px-4 py-3 font-black text-neutral-950">{formatMoney(record.unitCost)}</td><td className="px-4 py-3">{record.supplier || '-'}</td><td className="px-4 py-3">{record.note || '-'}</td></tr>)}</tbody>
           </table>
           {records.length === 0 ? <div className="p-8 text-center text-neutral-500"><div className="text-4xl">📭</div><p className="mt-3 font-black text-neutral-950">ยังไม่มีประวัติต้นทุนจากการรับเข้า</p><p className="mt-1 text-sm">ให้ไปที่หน้า สต็อค → รับเข้า / เพิ่มสินค้า เพื่อบันทึกต้นทุนรอบใหม่ ระบบจะนำมาแสดงในตารางนี้อัตโนมัติ</p></div> : null}
         </div>
