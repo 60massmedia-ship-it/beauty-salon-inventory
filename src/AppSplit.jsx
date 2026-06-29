@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Dashboard from './components/Dashboard.jsx';
 import StockPage from './components/StockPage.jsx';
 import ProductPage from './components/ProductPage.jsx';
+import LoginScreen from './components/LoginScreen.jsx';
 import { Button, Modal } from './components/ui.jsx';
 import { STORAGE_KEYS } from './data/constants.js';
 import { exportCsv, exportJson } from './lib/export.js';
@@ -16,6 +17,7 @@ import {
 } from './lib/inventory.js';
 
 const THEME_STORAGE_KEY = 'beauty_salon_inventory_theme_mode';
+const AUTH_STORAGE_KEY = 'beauty_salon_inventory_auth_session';
 
 function readStorage(key, fallback) {
   try {
@@ -41,6 +43,17 @@ function readLanguageMode() {
     return value === 'en' ? 'en' : 'th';
   } catch {
     return 'th';
+  }
+}
+
+function readAuthSession() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    return session?.username ? session : null;
+  } catch {
+    return null;
   }
 }
 
@@ -99,6 +112,7 @@ export default function BeautySalonInventoryApp() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [languageMode, setLanguageMode] = useState(readLanguageMode);
+  const [authSession, setAuthSession] = useState(readAuthSession);
   useAutoTranslate(languageMode, activeTab);
 
   useEffect(() => {
@@ -120,6 +134,22 @@ export default function BeautySalonInventoryApp() {
   useEffect(() => {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, languageMode);
   }, [languageMode]);
+
+  function handleLogin(session) {
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+    setAuthSession(session);
+  }
+
+  function handleLogout() {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setShowExportMenu(false);
+    setActiveTab('dashboard');
+    setAuthSession(null);
+  }
+
+  if (!authSession) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊', helper: 'ภาพรวมร้าน' },
@@ -238,6 +268,9 @@ export default function BeautySalonInventoryApp() {
                 ⬆ Import
                 <input type="file" accept="application/json" onChange={importData} className="hidden" />
               </label>
+              <button type="button" onClick={handleLogout} className="premium-button inline-flex min-h-[48px] items-center justify-center rounded-[1.15rem] bg-white/10 px-5 py-3 text-sm font-black text-white ring-1 ring-white/15 transition hover:-translate-y-0.5 hover:bg-white/20 active:scale-[0.98]">
+                Logout
+              </button>
             </div>
           </div>
         </header>
